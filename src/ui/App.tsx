@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { TabBar, type Tab } from './TabBar';
+import { WorkoutScreen } from './workout/WorkoutScreen';
 
 function Placeholder({ title }: { title: string }) {
   return (
@@ -13,7 +14,7 @@ export function App() {
   const [tab, setTab] = useState<Tab>('workout');
   return (
     <>
-      {tab === 'workout' && <Placeholder title="Тренировка" />}
+      {tab === 'workout' && <WorkoutScreen />}
       {tab === 'progress' && <Placeholder title="Прогресс" />}
       {tab === 'nutrition' && <Placeholder title="Питание" />}
       {tab === 'profile' && <Placeholder title="Профиль" />}
