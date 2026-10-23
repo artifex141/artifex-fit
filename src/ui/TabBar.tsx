@@ -48,7 +48,7 @@ export function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void
     <nav className="tabbar">
       {TABS.map((t) => (
         <button key={t.id} className={t.id === tab ? 'tab on' : 'tab'} onClick={() => onChange(t.id)}>
-          {t.icon}
+          <span className="tab-icon">{t.icon}</span>
           <span>{t.label}</span>
         </button>
       ))}

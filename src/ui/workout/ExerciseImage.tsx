@@ -3,25 +3,19 @@ import type { ExerciseImage as Img } from '../../program/types';
 const url = (src: string) => `${import.meta.env.BASE_URL}${src}`;
 const LABELS = ['Старт', 'Подъём', 'Опускание'];
 
+/** Три кадра, как на макете. Для фото из базы (2 кадра) третий кадр — снова исходное положение. */
 export function ExerciseImage({ image, name }: { image: Img; name: string }) {
-  if (image.frames === 3) {
-    return (
-      <div className="ex-img three" role="img" aria-label={name}>
-        {[0, 50, 100].map((pos, i) => (
-          <div key={pos} className="frame" style={{ backgroundImage: `url(${url(image.src)})`, backgroundPosition: `${pos}% 50%` }}>
-            <span className="frame-n">{i + 1}</span>
-            <span className="frame-label">{LABELS[i]}</span>
-          </div>
-        ))}
-      </div>
-    );
-  }
   return (
-    <div className="ex-img two">
-      {[image.src0, image.src1].map((src, i) => (
-        <div key={src} className="frame photo">
-          <img src={url(src)} alt={`${name}, кадр ${i + 1}`} loading="lazy" />
+    <div className="ex-img" role="img" aria-label={name}>
+      {LABELS.map((label, i) => (
+        <div key={label} className="frame">
+          {image.frames === 3 ? (
+            <div className="frame-pic" style={{ backgroundImage: `url(${url(image.src)})`, backgroundPosition: `${i * 50}% 50%` }} />
+          ) : (
+            <img className="frame-photo" src={url(i === 1 ? image.src1 : image.src0)} alt="" loading="lazy" />
+          )}
           <span className="frame-n">{i + 1}</span>
+          <span className="frame-label">{label}</span>
         </div>
       ))}
     </div>

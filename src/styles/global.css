@@ -10,7 +10,7 @@
   --ok: #35c46b;
   --warn: #ffb020;
   --radius: 18px;
-  --tabbar-h: 64px;
+  --tabbar-h: 84px;
   color-scheme: dark;
 }
 
@@ -33,7 +33,7 @@ button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; border: 0; background: none; padding: 0; }
 
 .screen {
-  padding: calc(env(safe-area-inset-top) + 16px) 16px calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 96px);
+  padding: calc(env(safe-area-inset-top) + 16px) 16px calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 28px);
   max-width: 560px;
   margin: 0 auto;
 }

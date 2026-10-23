@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNow } from '../useNow';
-import { formatClock, remainingSec } from './timer';
-
-interface RestState {
-  startedAt: number;
-  duration: number;
-}
+import { playBeep, unlockSound } from './sound';
+import { pauseRest, restLeft, resumeRest, type RestState } from './timer';
 
 const KEY = 'artifex.rest';
 
@@ -18,7 +14,7 @@ function load(): RestState | null {
   }
 }
 
-function save(s: RestState | null) {
+function persist(s: RestState | null) {
   try {
     if (s) localStorage.setItem(KEY, JSON.stringify(s));
     else localStorage.removeItem(KEY);
@@ -27,100 +23,40 @@ function save(s: RestState | null) {
   }
 }
 
-let audio: AudioContext | null = null;
-
-/** Короткий сигнал; работает, если звук был разблокирован нажатием (unlockAudio). */
-function beep() {
-  if (!audio || document.visibilityState !== 'visible') return;
-  const t = audio.currentTime;
-  for (const [i, f] of [880, 1320].entries()) {
-    const osc = audio.createOscillator();
-    const gain = audio.createGain();
-    osc.frequency.value = f;
-    gain.gain.setValueAtTime(0.25, t + i * 0.18);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.18 + 0.16);
-    osc.connect(gain).connect(audio.destination);
-    osc.start(t + i * 0.18);
-    osc.stop(t + i * 0.18 + 0.17);
-  }
-  navigator.vibrate?.(300);
-}
-
-/** Создаёт и запускает AudioContext. Вызывать синхронно внутри нажатия, иначе iOS оставит его выключенным. */
-export function unlockAudio() {
-  try {
-    audio ??= new AudioContext();
-    void audio.resume();
-  } catch {
-    audio = null;
-  }
-}
-
+/** Отдых между подходами: старт по ✓, пауза, сигнал в конце. Отображается в строке подхода. */
 export function useRestTimer() {
   const [state, setState] = useState<RestState | null>(load);
-  const start = useCallback((duration: number) => {
-    unlockAudio();
-    const s = { startedAt: Date.now(), duration };
-    save(s);
+  const now = useNow(250);
+  const left = state ? restLeft(state, now) : 0;
+
+  const set = useCallback((s: RestState | null) => {
+    persist(s);
     setState(s);
   }, []);
-  const stop = useCallback(() => {
-    save(null);
-    setState(null);
-  }, []);
-  const add = useCallback((sec: number) => {
-    setState((s) => {
-      if (!s) return s;
-      const next = { ...s, duration: s.duration + sec };
-      save(next);
-      return next;
-    });
-  }, []);
-  return { state, start, stop, add };
-}
 
-export function RestTimer({ state, onStop, onAdd }: { state: RestState | null; onStop: () => void; onAdd: (s: number) => void }) {
-  const now = useNow(250);
-  const left = state ? remainingSec(state.startedAt, state.duration, now) : 0;
-  const prevLeft = useRef(left);
-
-  useEffect(() => {
-    if (prevLeft.current > 0 && left === 0 && state) beep();
-    prevLeft.current = left;
-  }, [left, state]);
-
-  // Через 5 с после окончания панель скрывается сама.
-  useEffect(() => {
-    if (state && left === 0 && now - (state.startedAt + state.duration * 1000) > 5000) onStop();
-  }, [state, left, now, onStop]);
-
-  if (!state) return null;
-  const R = 26;
-  const C = 2 * Math.PI * R;
-  const frac = state.duration ? left / state.duration : 0;
-
-  return (
-    <div className={left === 0 ? 'rest done' : 'rest'}>
-      <svg viewBox="0 0 64 64" className="rest-ring">
-        <circle cx="32" cy="32" r={R} stroke="var(--line)" strokeWidth="6" fill="none" />
-        <circle
-          cx="32" cy="32" r={R} stroke="var(--accent)" strokeWidth="6" fill="none" strokeLinecap="round"
-          strokeDasharray={C} strokeDashoffset={C * (1 - frac)} transform="rotate(-90 32 32)"
-        />
-      </svg>
-      <div className="rest-text">
-        <div className="rest-label">{left === 0 ? 'Отдых окончен' : 'Отдых'}</div>
-        <div className="rest-clock">{formatClock(left)}</div>
-      </div>
-      <div className="spacer" />
-      {left > 0 && (
-        <button className="btn" onClick={() => onAdd(30)}>
-          +30 с
-        </button>
-      )}
-      <button className="btn" onClick={onStop}>
-        {left === 0 ? 'OK' : 'Стоп'}
-      </button>
-    </div>
+  /** Вызывать синхронно в обработчике нажатия: так iOS разрешит звук. */
+  const start = useCallback(
+    (setKey: string, duration: number) => {
+      unlockSound();
+      set({ startedAt: Date.now(), duration, setKey });
+    },
+    [set],
   );
+  const stop = useCallback(() => set(null), [set]);
+  const toggle = useCallback(() => {
+    if (!state) return;
+    set(state.pausedLeft === undefined ? pauseRest(state, Date.now()) : resumeRest(state, Date.now()));
+  }, [state, set]);
+
+  // Сигнал при переходе через ноль, затем таймер исчезает из строки.
+  const prev = useRef(left);
+  useEffect(() => {
+    if (state && prev.current > 0 && left === 0) {
+      playBeep();
+      set(null);
+    }
+    prev.current = left;
+  }, [left, state, set]);
+
+  return { state, left, start, stop, toggle };
 }

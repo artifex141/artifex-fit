@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { db } from '../../db/db';
 import {
   deleteSet,
@@ -16,16 +16,17 @@ import {
 import { DAYS } from '../../program/program';
 import { dayInfo } from '../../program/schedule';
 import { summary as statsSummary } from '../../program/stats';
+import type { DayType } from '../../program/types';
 import { targetFor } from '../../program/weights';
 import { useNow } from '../useNow';
-import { ExerciseCard } from './ExerciseCard';
-import { RestTimer, unlockAudio, useRestTimer } from './RestTimer';
-import { formatClock } from './timer';
+import { ExerciseCard, ExerciseRow } from './ExerciseCard';
+import { useRestTimer } from './RestTimer';
 import type { SetValues } from './SetRow';
+import { formatHMS } from './timer';
 import './workout.css';
 
 const REST_WORK = 120;
-const REST_WARMUP = 60;
+const SHORT: Record<DayType, string> = { A: 'Верх груди', B: 'Плечи · Ноги', C: 'Грудь · Спина' };
 
 interface Summary {
   minutes: number;
@@ -36,9 +37,21 @@ interface Summary {
   next: Position;
 }
 
-function Clock({ since }: { since: number }) {
+type Sheet = null | 'finish' | 'menu' | 'notStarted';
+
+function Clock({ since }: { since: number | null }) {
   const now = useNow(1000);
-  return <>{formatClock(Math.max(0, (now - since) / 1000))}</>;
+  return <>{formatHMS(since === null ? 0 : (now - since) / 1000)}</>;
+}
+
+function SheetView({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  return (
+    <div className="dialog-backdrop" onClick={onClose}>
+      <div className="dialog card stack" onClick={(e) => e.stopPropagation()}>
+        {children}
+      </div>
+    </div>
+  );
 }
 
 export function WorkoutScreen({ onCycleEnd }: { onCycleEnd?: (cycle: number) => void }) {
@@ -51,32 +64,43 @@ export function WorkoutScreen({ onCycleEnd }: { onCycleEnd?: (cycle: number) => 
   const rest = useRestTimer();
   const [openId, setOpenId] = useState<string | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [sheet, setSheet] = useState<Sheet>(null);
 
-  if (!at || open === undefined || pendingEnd === undefined || !cfg) return <div className="screen" />;
+  const info = at ? dayInfo(at.day) : null;
+  const targets = useMemo(() => {
+    if (!at || !info || !cfg) return {};
+    const log = allSets.filter((s) => s.cycle === at.cycle);
+    return Object.fromEntries(DAYS[info.type].exercises.map((pe) => [pe.exerciseId, targetFor(pe.exerciseId, info.week, at.cycle, log, cfg)]));
+  }, [allSets, cfg, at?.cycle, at?.day]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { week, type, rir } = dayInfo(at.day);
+  if (!at || !info || open === undefined || pendingEnd === undefined || !cfg) return <div className="screen" />;
+
+  const { week, type, rir } = info;
   const day = DAYS[type];
-  const log = allSets.filter((s) => s.cycle === at.cycle);
-  const current = open ? allSets.filter((s) => s.workoutId === open.id) : [];
-  const workDone = current.filter((s) => s.kind === 'work').length;
+  const current = open ? allSets.filter((s) => s.workoutId === open.id && s.kind === 'work') : [];
+  const workDone = current.length;
   const workTotal = day.exercises.reduce((n, e) => n + e.weeks[week - 1].sets, 0);
-  const firstOpen = day.exercises.find((e) => current.filter((s) => s.exerciseId === e.exerciseId && s.kind === 'work').length < e.weeks[week - 1].sets);
-  const expandedId = openId ?? firstOpen?.exerciseId ?? null;
+  const doneOf = (id: string) => current.filter((s) => s.exerciseId === id).length;
+  const isDone = (pe: (typeof day.exercises)[number]) => doneOf(pe.exerciseId) >= pe.weeks[week - 1].sets;
+  const expandedId = openId ?? day.exercises.find((e) => !isDone(e))?.exerciseId ?? day.exercises[day.exercises.length - 1].exerciseId;
+  const expandedIdx = day.exercises.findIndex((e) => e.exerciseId === expandedId);
 
-  const save = async (exerciseId: string, kind: 'warmup' | 'work', index: number, v: SetValues) => {
-    if (!open?.id) return;
-    // Таймер (и звук) запускаем до первого await — iOS разрешает звук только внутри нажатия.
-    rest.start(kind === 'work' ? REST_WORK : REST_WARMUP);
-    await saveSet({ workoutId: open.id, cycle: open.cycle, day: open.day, exerciseId, kind, index, ...v });
+  const save = async (exerciseId: string, index: number, v: SetValues) => {
+    // Таймер и разблокировку звука — до первого await: iOS разрешает звук только внутри нажатия.
+    rest.start(`${exerciseId}:${index}`, REST_WORK);
+    setOpenId(exerciseId);
+    const workoutId = open?.id ?? (await startWorkout(at));
+    await saveSet({ workoutId, cycle: at.cycle, day: at.day, exerciseId, kind: 'work', index, ...v });
   };
 
-  const undo = async (exerciseId: string, kind: 'warmup' | 'work', index: number) => {
-    if (open?.id) await deleteSet(open.id, exerciseId, kind, index);
+  const undo = async (exerciseId: string, index: number) => {
+    if (rest.state?.setKey === `${exerciseId}:${index}`) rest.stop();
+    if (open?.id) await deleteSet(open.id, exerciseId, 'work', index);
   };
 
   const finish = async () => {
     if (!open?.id) return;
-    if (workDone < workTotal && !confirm(`Сделано ${workDone} из ${workTotal} подходов. Завершить тренировку?`)) return;
+    setSheet(null);
     const { next, cycleEnd } = await finishWorkout(open.id);
     rest.stop();
     setOpenId(null);
@@ -85,7 +109,8 @@ export function WorkoutScreen({ onCycleEnd }: { onCycleEnd?: (cycle: number) => 
   };
 
   const cancel = async () => {
-    if (!open?.id || !confirm('Отменить тренировку? Она не сохранится.')) return;
+    if (!open?.id) return;
+    setSheet(null);
     rest.stop();
     setOpenId(null);
     await discardWorkout(open.id);
@@ -144,79 +169,122 @@ export function WorkoutScreen({ onCycleEnd }: { onCycleEnd?: (cycle: number) => 
     );
   }
 
-  return (
-    <div className="screen">
-      <div className="row workout-top">
-        <div>
-          <h1 className="screen-title">Тренировка</h1>
-          <p className="screen-sub">
-            День {at.day} · «{type}»: {day.title}
-          </p>
-        </div>
-        <div className="spacer" />
-        {open && (
-          <div className="stopwatch">
-            <span className="stopwatch-time">
-              <Clock since={open.startedAt} />
-            </span>
-            <span className="stopwatch-label">время</span>
-          </div>
-        )}
-      </div>
-
-      <div className="chips week-chips">
-        <span className="chip on">Неделя {week}{week === 5 ? ' · разгрузка' : ''}</span>
-        <span className="chip">Запас {rir}</span>
-        {at.cycle > 1 && <span className="chip">Цикл {at.cycle}</span>}
-        {open && (
-          <span className="chip">
-            {workDone}/{workTotal} подходов
-          </span>
-        )}
-      </div>
-
-      {!open && (
-        <button
-          className="btn primary block start-btn"
-          onClick={() => {
-            unlockAudio();
-            void startWorkout(at);
-          }}
-        >
-          Начать тренировку
-        </button>
-      )}
-
-      <div className="stack">
-        {day.exercises.map((pe, i) => (
-          <ExerciseCard
-            key={pe.exerciseId}
-            n={i + 1}
-            pe={pe}
-            week={week}
-            target={targetFor(pe.exerciseId, week, at.cycle, log, cfg)}
-            sets={current.filter((s) => s.exerciseId === pe.exerciseId)}
-            active={!!open}
-            expanded={expandedId === pe.exerciseId}
-            onToggle={() => setOpenId(expandedId === pe.exerciseId ? '' : pe.exerciseId)}
-            onSave={(kind, index, v) => save(pe.exerciseId, kind, index, v)}
-            onUndo={(kind, index) => undo(pe.exerciseId, kind, index)}
-          />
+  const rowsGroup = (from: number, to: number) => {
+    const items = day.exercises.slice(from, to);
+    if (items.length === 0) return null;
+    return (
+      <div className="ex-list">
+        {items.map((pe, i) => (
+          <ExerciseRow key={pe.exerciseId} n={from + i + 1} pe={pe} done={isDone(pe)} onOpen={() => setOpenId(pe.exerciseId)} />
         ))}
       </div>
+    );
+  };
 
-      {open && (
-        <button className="btn block finish-btn" onClick={finish}>
-          Завершить тренировку
-        </button>
-      )}
-      {open && workDone === 0 && (
-        <button className="btn block cancel-btn" onClick={cancel}>
-          Отменить тренировку
-        </button>
-      )}
+  const expanded = day.exercises[expandedIdx];
+  const restIdx = rest.state?.setKey.startsWith(`${expanded.exerciseId}:`) ? Number(rest.state.setKey.split(':')[1]) : null;
 
-      <RestTimer state={rest.state} onStop={rest.stop} onAdd={rest.add} />
+  return (
+    <div className="screen workout">
+      <header className="w-head">
+        <div className="w-titles">
+          <h1 className="screen-title">Тренировка</h1>
+          <p className="w-sub">
+            {SHORT[type]} · День {at.day}
+          </p>
+        </div>
+        <button className="w-clock" onClick={() => setSheet(open ? 'finish' : 'notStarted')}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <circle cx="12" cy="13" r="8" />
+            <path d="M12 9v4l2.5 2M5 4.5 3 6.5M19 4.5l2 2" />
+          </svg>
+          <span>
+            <span className="w-clock-time">
+              <Clock since={open ? open.startedAt : null} />
+            </span>
+            <span className="w-clock-label">Время тренировки</span>
+          </span>
+        </button>
+        <button className="round-btn big" aria-label="Меню" onClick={() => setSheet('menu')}>
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="5" cy="12" r="2" />
+            <circle cx="12" cy="12" r="2" />
+            <circle cx="19" cy="12" r="2" />
+          </svg>
+        </button>
+      </header>
+
+      {rowsGroup(0, expandedIdx)}
+      <ExerciseCard
+        key={expanded.exerciseId}
+        n={expandedIdx + 1}
+        pe={expanded}
+        week={week}
+        target={targets[expanded.exerciseId]}
+        sets={current.filter((s) => s.exerciseId === expanded.exerciseId)}
+        rest={
+          restIdx !== null && rest.state
+            ? { setIndex: restIdx, view: { left: rest.left, duration: rest.state.duration, paused: rest.state.pausedLeft !== undefined, onToggle: rest.toggle } }
+            : null
+        }
+        onCollapse={() => {
+          const next = day.exercises.find((e, i) => i > expandedIdx && !isDone(e)) ?? day.exercises.find((e) => !isDone(e) && e !== expanded);
+          setOpenId(next ? next.exerciseId : expanded.exerciseId);
+        }}
+        onSave={(i, v) => save(expanded.exerciseId, i, v)}
+        onUndo={(i) => undo(expanded.exerciseId, i)}
+      />
+      {rowsGroup(expandedIdx + 1, day.exercises.length)}
+
+      {sheet === 'finish' && (
+        <SheetView onClose={() => setSheet(null)}>
+          <h2 className="card-title">Завершить тренировку?</h2>
+          <p className="muted">
+            Сделано {workDone} из {workTotal} подходов.
+          </p>
+          <button className="btn primary block" onClick={finish}>
+            Завершить
+          </button>
+          {workDone === 0 && (
+            <button className="btn block" onClick={cancel}>
+              Отменить тренировку
+            </button>
+          )}
+          <button className="btn block" onClick={() => setSheet(null)}>
+            Продолжить
+          </button>
+        </SheetView>
+      )}
+      {sheet === 'notStarted' && (
+        <SheetView onClose={() => setSheet(null)}>
+          <h2 className="card-title">Тренировка ещё не началась</h2>
+          <p className="muted">Время пойдёт с первой отмеченной галочки.</p>
+          <button className="btn primary block" onClick={() => setSheet(null)}>
+            Понятно
+          </button>
+        </SheetView>
+      )}
+      {sheet === 'menu' && (
+        <SheetView onClose={() => setSheet(null)}>
+          <h2 className="card-title">
+            День {at.day} · «{type}»
+          </h2>
+          <p className="muted">
+            {day.title}
+            <br />
+            Неделя {week}
+            {week === 5 ? ' (разгрузка)' : ''} · запас {rir} повт.{at.cycle > 1 ? ` · цикл ${at.cycle}` : ''}
+          </p>
+          {open && workDone === 0 && (
+            <button className="btn block" onClick={cancel}>
+              Отменить тренировку
+            </button>
+          )}
+          <button className="btn block" onClick={() => setSheet(null)}>
+            Закрыть
+          </button>
+        </SheetView>
+      )}
     </div>
   );
 }
