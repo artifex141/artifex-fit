@@ -72,5 +72,16 @@ export function useRestTimer() {
     prev.current = left;
   }, [left, state, set]);
 
-  return { state, left, start, stop, toggle };
+  const add = useCallback(
+    (sec: number) => {
+      if (!state) return;
+      if (state.pausedLeft !== undefined) return set({ ...state, pausedLeft: state.pausedLeft + sec });
+      const next = { ...state, duration: state.duration + sec };
+      set(next);
+      void push.scheduleRest(next.startedAt + next.duration * 1000, 'Отдых окончен', next.label ?? '');
+    },
+    [state, set],
+  );
+
+  return { state, left, start, stop, toggle, add };
 }

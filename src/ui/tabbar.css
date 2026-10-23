@@ -10,7 +10,7 @@
   box-shadow: 0 -0.6rem 3rem rgba(0, 0, 0, 0.45);
   z-index: 20;
 }
-.tab { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 0.6rem; padding-top: 0.3rem; color: var(--muted); font-size: 2.4rem; line-height: 1; }
+.tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6rem; padding-top: 0; color: var(--muted); font-size: 2.4rem; line-height: 1; }
 .tab-icon {
   width: 7.8rem; height: 7.8rem; border-radius: 50%; display: grid; place-items: center;
   background: var(--glass); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow);

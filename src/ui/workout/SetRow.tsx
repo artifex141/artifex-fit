@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { WeightRule } from '../../program/types';
 import { CheckIcon, NumRing } from '../kit';
 import { formatClock } from './timer';
@@ -14,6 +14,7 @@ export interface RestView {
   duration: number;
   paused: boolean;
   onToggle: () => void;
+  onAdd: (sec: number) => void;
 }
 
 export interface SetRowProps {
@@ -64,22 +65,33 @@ function Field({ label, value, onChange, step, disabled, decimal }: { label: str
   );
 }
 
+/** Кольцо отдыха как на макете: толстая светящаяся дуга со скруглёнными концами вокруг тёмного стеклянного диска. */
 function RestRing({ left, duration }: { left: number; duration: number }) {
-  const R = 31;
+  const id = useId().replace(/:/g, '');
+  const R = 44;
   const C = 2 * Math.PI * R;
-  const frac = duration ? left / duration : 0;
+  const frac = duration ? Math.max(0, Math.min(1, left / duration)) : 0;
+  const arc = { strokeDasharray: C, strokeDashoffset: C * (1 - frac), transform: 'rotate(-90 52 52)' };
   return (
     <div className="rest-ring">
-      <svg viewBox="0 0 76 76">
+      <svg viewBox="0 0 104 104">
         <defs>
-          <linearGradient id="restg" x1="0" y1="0" x2="1" y2="1">
+          <linearGradient id={`g${id}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stopColor="#ffd84a" />
-            <stop offset="1" stopColor="#e0a800" />
+            <stop offset="1" stopColor="#f2b705" />
           </linearGradient>
+          <radialGradient id={`d${id}`} cx="0.45" cy="0.35" r="0.75">
+            <stop offset="0" stopColor="#1f272f" />
+            <stop offset="1" stopColor="#0c1115" />
+          </radialGradient>
+          <filter id={`f${id}`} x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="2.6" />
+          </filter>
         </defs>
-        <circle cx="38" cy="38" r={R} className="rest-ring-track" />
-        <circle cx="38" cy="38" r={R} className="rest-ring-fg" stroke="url(#restg)" strokeDasharray={C} strokeDashoffset={C * (1 - frac)} transform="rotate(-90 38 38)" />
-        <circle cx="38" cy="38" r={R - 7} className="rest-ring-in" />
+        <circle cx="52" cy="52" r={R} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="9" />
+        {frac > 0 && <circle cx="52" cy="52" r={R} fill="none" stroke="#f5c518" strokeOpacity="0.55" strokeWidth="9" strokeLinecap="round" filter={`url(#f${id})`} {...arc} />}
+        {frac > 0 && <circle cx="52" cy="52" r={R} fill="none" stroke={`url(#g${id})`} strokeWidth="9" strokeLinecap="round" {...arc} />}
+        <circle cx="52" cy="52" r="34" fill={`url(#d${id})`} stroke="rgba(255,255,255,0.13)" strokeWidth="1" />
       </svg>
       <span>{formatClock(left)}</span>
     </div>
@@ -130,10 +142,9 @@ export function SetRow({ n, rule, step, withDrop, status, suggest, fact, rest, o
         {rest && (
           <>
             <RestRing left={rest.left} duration={rest.duration} />
-            <span className="rest-info">
-              <span className="rest-info-label">Отдых после {n} подхода</span>
-              <span className="rest-info-total">{formatClock(rest.duration)}</span>
-            </span>
+            <button className="glass-btn add-btn" aria-label="Добавить 30 секунд" onClick={() => rest.onAdd(30)}>
+              +30<small>с</small>
+            </button>
             <button className="glass-btn accent pause" aria-label={rest.paused ? 'Продолжить отдых' : 'Пауза'} onClick={rest.onToggle}>
               {rest.paused ? (
                 <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor" /></svg>

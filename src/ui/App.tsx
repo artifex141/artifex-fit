@@ -16,6 +16,13 @@ export function App() {
       {tab === 'nutrition' && <NutritionScreen />}
       {tab === 'profile' && <ProfileScreen onNewCycle={setEndingCycle} />}
       <TabBar tab={tab} onChange={setTab} />
+      <div className="rotate-lock">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="7" y="2.5" width="10" height="19" rx="2.5" />
+          <path d="M11 18.5h2" />
+        </svg>
+        Поверни телефон вертикально
+      </div>
       {endingCycle !== null && (
         <CycleDialog
           cycle={endingCycle}

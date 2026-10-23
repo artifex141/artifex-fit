@@ -27,7 +27,7 @@ import { formatHMS } from './timer';
 import './workout.css';
 
 const REST_WORK = 120;
-const SHORT: Record<DayType, string> = { A: 'Верх груди', B: 'Плечи · Ноги', C: 'Грудь · Спина' };
+const SHORT: Record<DayType, string> = { A: 'Верх груди', B: 'Плечи • Ноги', C: 'Грудь • Спина' };
 
 interface Summary {
   minutes: number;
@@ -184,7 +184,7 @@ export function WorkoutScreen({ onCycleEnd }: { onCycleEnd?: (cycle: number) => 
     const items = day.exercises.slice(from, to);
     if (items.length === 0) return null;
     return (
-      <div className="ex-list">
+      <div className={from === 0 ? 'ex-list before' : 'ex-list after'}>
         {items.map((pe, i) => (
           <ExerciseRow key={pe.exerciseId} n={from + i + 1} pe={pe} done={isDone(pe)} onOpen={() => setOpenId(pe.exerciseId)} />
         ))}
@@ -201,7 +201,7 @@ export function WorkoutScreen({ onCycleEnd }: { onCycleEnd?: (cycle: number) => 
         <div className="w-titles">
           <h1 className="screen-title">Тренировка</h1>
           <p className="w-sub">
-            {SHORT[type]} · День {at.day}
+            {SHORT[type]} • День {at.day}
           </p>
         </div>
         <button className="w-clock" onClick={() => setSheet(open ? 'finish' : 'notStarted')}>
@@ -235,7 +235,7 @@ export function WorkoutScreen({ onCycleEnd }: { onCycleEnd?: (cycle: number) => 
         sets={current.filter((s) => s.exerciseId === expanded.exerciseId)}
         rest={
           restIdx !== null && rest.state
-            ? { setIndex: restIdx, view: { left: rest.left, duration: rest.state.duration, paused: rest.state.pausedLeft !== undefined, onToggle: rest.toggle } }
+            ? { setIndex: restIdx, view: { left: rest.left, duration: rest.state.duration, paused: rest.state.pausedLeft !== undefined, onToggle: rest.toggle, onAdd: rest.add } }
             : null
         }
         onCollapse={() => {

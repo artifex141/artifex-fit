@@ -1,11 +1,9 @@
 // Общие элементы макета: номер в круге с жёлтой дугой подсветки, стеклянная круглая кнопка.
-import type { ReactNode } from 'react';
-
-let uid = 0;
+import { useId, type ReactNode } from 'react';
 
 /** Номер в тёмном круге. active — жёлтая светящаяся дуга слева, как «1» и «2» на макете. */
 export function NumRing({ n, active, size = 40 }: { n: ReactNode; active?: boolean; size?: number }) {
-  const id = `ng${++uid}`;
+  const id = `ng${useId().replace(/:/g, '')}`;
   return (
     <span className={active ? 'num-ring on' : 'num-ring'} style={{ width: size, height: size, fontSize: size * 0.44 }}>
       <svg viewBox="0 0 40 40" aria-hidden="true">
@@ -16,8 +14,12 @@ export function NumRing({ n, active, size = 40 }: { n: ReactNode; active?: boole
             <stop offset="0.75" stopColor="#ffd84a" />
             <stop offset="1" stopColor="#f5c518" stopOpacity="0" />
           </linearGradient>
+          <filter id={`${id}f`} x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur stdDeviation="1.6" />
+          </filter>
         </defs>
         <circle cx="20" cy="20" r="18.5" className="num-ring-track" />
+        {active && <path d="M 9 34 A 18.5 18.5 0 0 1 26 2.5" className="num-ring-arc" stroke={`url(#${id})`} style={{ strokeWidth: 3.4 }} opacity="0.7" filter={`url(#${id}f)`} />}
         {active && <path d="M 9 34 A 18.5 18.5 0 0 1 26 2.5" className="num-ring-arc" stroke={`url(#${id})`} />}
       </svg>
       <span className="num-ring-n">{n}</span>

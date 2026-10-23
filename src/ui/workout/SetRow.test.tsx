@@ -37,17 +37,20 @@ test('будущий подход: «- -» и неактивная ✓', () => {
   expect(screen.getByRole('button', { name: 'Записать подход' })).toBeDisabled();
 });
 
-test('после ✓ на месте полей — таймер отдыха', () => {
+test('после ✓ на месте полей — таймер отдыха с кнопкой +30 с', () => {
+  const added: number[] = [];
   render(
     <SetRow
       {...base}
       status="done"
       fact={{ lb: 22.5, reps: 12 }}
-      rest={{ left: 92, duration: 120, paused: false, onToggle: () => {} }}
+      rest={{ left: 92, duration: 120, paused: false, onToggle: () => {}, onAdd: (sec: number) => added.push(sec) }}
     />,
   );
   expect(screen.getByText('01:32')).toBeInTheDocument();
-  expect(screen.getByText('Отдых после 1 подхода')).toBeInTheDocument();
+  expect(screen.queryByText(/Отдых после/)).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Добавить 30 секунд' }));
+  expect(added).toEqual([30]);
   expect(screen.getByText('22.5 lb × 12 повт.')).toBeInTheDocument();
   expect(screen.queryAllByRole('textbox')).toHaveLength(0);
 });

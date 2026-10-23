@@ -40,8 +40,15 @@ export function PulseCard() {
                 <stop offset="0" stopColor="#ffd84a" />
                 <stop offset="1" stopColor="#e3a900" />
               </linearGradient>
+              <filter id="pulseglow" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="2.4" />
+              </filter>
             </defs>
             <circle cx="50" cy="50" r="40" className="pulse-ring-track" />
+            <circle
+              cx="50" cy="50" r="40" className="pulse-ring-arc" stroke="#f5c518" opacity="0.5" filter="url(#pulseglow)"
+              strokeDasharray={ringC} strokeDashoffset={ringC * (1 - ringFrac)} transform="rotate(-90 50 50)"
+            />
             <circle
               cx="50" cy="50" r="40" className="pulse-ring-arc" stroke="url(#pulseg)"
               strokeDasharray={ringC} strokeDashoffset={ringC * (1 - ringFrac)} transform="rotate(-90 50 50)"
@@ -58,6 +65,9 @@ export function PulseCard() {
         </div>
         <svg viewBox={`0 0 ${W} ${H}`} className="pulse-chart">
           <defs>
+            <filter id="lineglow" x="-10%" y="-30%" width="120%" height="160%">
+              <feGaussianBlur stdDeviation="2" />
+            </filter>
             <linearGradient id="pulsearea" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0" stopColor="#f5c518" stopOpacity="0.5" />
               <stop offset="1" stopColor="#f5c518" stopOpacity="0.02" />
@@ -77,6 +87,7 @@ export function PulseCard() {
             </text>
           ))}
           <path d={area} fill="url(#pulsearea)" />
+          <path d={line} className="pulse-line" style={{ strokeWidth: 4 }} opacity="0.45" filter="url(#lineglow)" />
           <path d={line} className="pulse-line" />
           <circle cx={lx} cy={ly} r="5.5" fill="#f5c518" stroke="#fff" strokeWidth="2" />
           <g transform={`translate(${lx - 58}, ${ly - 34})`}>

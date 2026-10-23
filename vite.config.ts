@@ -21,7 +21,7 @@ export default defineConfig({
         description: 'Тренировки по программе: веса, подходы, прогресс',
         lang: 'ru',
         display: 'standalone',
-        orientation: 'portrait',
+        orientation: 'portrait-primary',
         theme_color: '#0B0D10',
         background_color: '#0B0D10',
         icons: [

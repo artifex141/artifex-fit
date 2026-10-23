@@ -58,15 +58,15 @@
 .p-subbox .p-big-caption { font-size: 2.2rem; white-space: nowrap; }
 
 /* Состав тела */
-.p-body-grid { display: grid; grid-template-columns: 1fr 22rem 1fr; align-items: center; margin-top: -1rem; }
-.p-metrics { display: flex; flex-direction: column; border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 2rem; }
-.p-metric { display: flex; flex-direction: column; gap: 0.8rem; padding: 1.8rem 2rem; }
+.p-body-grid { display: grid; grid-template-columns: minmax(0, 1fr) 17rem minmax(0, 1fr); gap: 1rem; align-items: center; margin-top: -1rem; }
+.p-metrics { display: flex; flex-direction: column; min-width: 0; border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 2rem; overflow: hidden; }
+.p-metric { display: flex; flex-direction: column; gap: 0.8rem; padding: 1.8rem 1.6rem; min-width: 0; }
 .p-metric + .p-metric { border-top: 1px solid rgba(255, 255, 255, 0.06); }
-.p-metric-value { font-size: 4.4rem; font-weight: 700; white-space: nowrap; }
+.p-metric-value { font-size: 4.2rem; font-weight: 700; white-space: nowrap; }
 .p-metric-value small { font-size: 3rem; font-weight: 600; }
-.p-metric-row { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; }
-.p-metric-label { font-size: 2.3rem; color: var(--muted); white-space: nowrap; }
-.p-metric-delta { font-size: 2.2rem; color: var(--accent); white-space: nowrap; }
+.p-metric-row { display: flex; justify-content: space-between; gap: 0.6rem; align-items: baseline; flex-wrap: wrap; min-width: 0; }
+.p-metric-label { font-size: 2.1rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.p-metric-delta { font-size: 2rem; color: var(--accent); white-space: nowrap; }
 .p-figure { width: 100%; height: auto; margin: -2rem 0 -2.2rem; mix-blend-mode: lighten; }
 
 /* Пульс в покое */
@@ -79,7 +79,7 @@
 .p-ring { position: relative; flex: none; width: 15.6rem; height: 15.6rem; }
 .p-ring svg { width: 100%; height: 100%; overflow: visible; }
 .p-ring-track { fill: none; stroke: #1b2229; stroke-width: 7; }
-.p-ring-arc { fill: none; stroke: #f5c518; stroke-width: 7; stroke-linecap: round; filter: drop-shadow(0 0 3px rgba(245, 197, 24, 0.6)); }
+.p-ring-arc { fill: none; stroke: #f5c518; stroke-width: 7; stroke-linecap: round; }
 .p-ring-text { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.4rem; }
 .p-ring-text b { font-size: 3.8rem; font-weight: 700; white-space: nowrap; }
 .p-ring-text span { font-size: 2.2rem; color: var(--muted); }
@@ -98,7 +98,7 @@
 .chart { width: 100%; height: auto; display: block; overflow: visible; }
 .chart-grid { stroke: rgba(255, 255, 255, 0.05); }
 .chart-label { fill: #8d9db1; font-size: 10px; }
-.chart-line { fill: none; stroke: #f5c518; stroke-width: 2; stroke-linejoin: round; filter: drop-shadow(0 0 2px rgba(245, 197, 24, 0.7)); }
+.chart-line { fill: none; stroke: #f5c518; stroke-width: 2; stroke-linejoin: round; }
 .chart-dot-halo { fill: rgba(245, 197, 24, 0.25); stroke: #f5c518; stroke-width: 1.5; }
 .chart-pill { fill: #182028; stroke: rgba(255, 255, 255, 0.12); }
 .chart-pill-text { fill: #fff; font-size: 10.5px; }
