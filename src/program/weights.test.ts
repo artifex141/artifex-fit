@@ -42,6 +42,11 @@ describe('targetFor', () => {
     expect(t.hint).toContain('Н1');
   });
 
+  test('нет Н1 на неделе с прибавкой — подсказка называет вес этой недели', () => {
+    expect(targetFor('ez-curl', 3, 1, [], EMPTY).hint).toContain('Н1 +5 lb');
+    expect(targetFor('leg-press-calf', 3, 1, [], EMPTY).hint).toContain('Н1 +20 lb');
+  });
+
   test('нет Н3 — подсказка про Н3', () => {
     expect(targetFor('ez-curl', 4, 1, [], EMPTY).hint).toContain('Н3');
   });

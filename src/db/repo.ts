@@ -29,8 +29,21 @@ export async function saveCycleConfig(cycle: number, c: CycleConfig): Promise<vo
   await db.settings.put({ key: `cycle:${cycle}`, value: c });
 }
 
+/** Начинает тренировку; если уже есть незавершённая — возвращает её (защита от двойного нажатия). */
 export async function startWorkout(p: Position): Promise<number> {
-  return db.workouts.add({ cycle: p.cycle, day: p.day, startedAt: Date.now() });
+  return db.transaction('rw', db.workouts, async () => {
+    const open = await getOpenWorkout();
+    if (open?.id !== undefined) return open.id;
+    return db.workouts.add({ cycle: p.cycle, day: p.day, startedAt: Date.now() });
+  });
+}
+
+/** Отменяет тренировку целиком: запись и все её подходы; позиция в программе не меняется. */
+export async function discardWorkout(id: number): Promise<void> {
+  await db.transaction('rw', db.workouts, db.sets, async () => {
+    await db.sets.where({ workoutId: id }).delete();
+    await db.workouts.delete(id);
+  });
 }
 
 export async function getOpenWorkout(): Promise<WorkoutRow | undefined> {
@@ -48,23 +61,37 @@ export async function deleteSet(workoutId: number, exerciseId: string, kind: 'wa
   await db.sets.where({ workoutId, exerciseId, kind, index }).delete();
 }
 
-export async function finishWorkout(id: number): Promise<Position> {
+/** Цикл, который завершён, но веса следующего ещё не выбраны. */
+export async function getPendingCycleEnd(): Promise<number | null> {
+  return getSetting<number | null>('cycleEnd', null);
+}
+
+/**
+ * Завершает тренировку и двигает позицию на следующий тренировочный день.
+ * После последнего дня цикла позиция не меняется: ставится отметка cycleEnd, новый цикл начинает startNextCycle.
+ */
+export async function finishWorkout(id: number): Promise<{ next: Position; cycleEnd: boolean }> {
   const w = await db.workouts.get(id);
   if (!w) throw new Error('Тренировка не найдена');
   const next = nextTrainingDay({ cycle: w.cycle, day: w.day });
+  const cycleEnd = next.cycle !== w.cycle;
   await db.transaction('rw', db.workouts, db.settings, async () => {
     await db.workouts.update(id, { finishedAt: Date.now() });
-    await setPosition(next);
+    if (cycleEnd) await db.settings.put({ key: 'cycleEnd', value: w.cycle });
+    else await setPosition(next);
   });
-  return next;
+  return { next, cycleEnd };
 }
 
 /** Закрывает цикл: считает настройки следующего по выбранному режиму и ставит позицию на день 1. */
 export async function startNextCycle(prevCycle: number, mode: CycleMode): Promise<void> {
-  const prev = await getCycleConfig(prevCycle);
-  const log = (await db.sets.toArray()).filter((s) => s.cycle === prevCycle);
-  await saveCycleConfig(prevCycle + 1, nextCycleConfig(prev, prevCycle, log, mode));
-  await setPosition({ cycle: prevCycle + 1, day: 1 });
+  await db.transaction('rw', db.sets, db.settings, async () => {
+    const prev = await getCycleConfig(prevCycle);
+    const log = (await db.sets.toArray()).filter((s) => s.cycle === prevCycle);
+    await saveCycleConfig(prevCycle + 1, nextCycleConfig(prev, prevCycle, log, mode));
+    await setPosition({ cycle: prevCycle + 1, day: 1 });
+    await db.settings.delete('cycleEnd');
+  });
 }
 
 export async function allSets(): Promise<SetRow[]> {
@@ -91,7 +118,12 @@ export async function exportAll(): Promise<string> {
 }
 
 export async function importAll(json: string): Promise<void> {
-  const data = JSON.parse(json) as Partial<Backup>;
+  let data: Partial<Backup>;
+  try {
+    data = JSON.parse(json) as Partial<Backup>;
+  } catch {
+    throw new Error('Файл повреждён');
+  }
   if (data?.version !== 1 || !Array.isArray(data.workouts) || !Array.isArray(data.sets) || !Array.isArray(data.settings)) {
     throw new Error('Это не резервная копия Artifex Fit');
   }

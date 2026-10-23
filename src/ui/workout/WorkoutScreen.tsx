@@ -1,14 +1,25 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useState } from 'react';
 import { db } from '../../db/db';
-import { deleteSet, finishWorkout, getCycleConfig, getOpenWorkout, getPosition, saveSet, startWorkout, type Position } from '../../db/repo';
+import {
+  deleteSet,
+  discardWorkout,
+  finishWorkout,
+  getCycleConfig,
+  getOpenWorkout,
+  getPendingCycleEnd,
+  getPosition,
+  saveSet,
+  startWorkout,
+  type Position,
+} from '../../db/repo';
 import { DAYS } from '../../program/program';
 import { dayInfo } from '../../program/schedule';
 import { summary as statsSummary } from '../../program/stats';
 import { targetFor } from '../../program/weights';
 import { useNow } from '../useNow';
 import { ExerciseCard } from './ExerciseCard';
-import { RestTimer, useRestTimer } from './RestTimer';
+import { RestTimer, unlockAudio, useRestTimer } from './RestTimer';
 import { formatClock } from './timer';
 import type { SetValues } from './SetRow';
 import './workout.css';
@@ -21,6 +32,7 @@ interface Summary {
   sets: number;
   tonnage: number;
   cycle: number;
+  cycleEnd: boolean;
   next: Position;
 }
 
@@ -32,6 +44,7 @@ function Clock({ since }: { since: number }) {
 export function WorkoutScreen({ onCycleEnd }: { onCycleEnd?: (cycle: number) => void }) {
   const position = useLiveQuery(getPosition);
   const open = useLiveQuery(async () => (await getOpenWorkout()) ?? null);
+  const pendingEnd = useLiveQuery(getPendingCycleEnd);
   const allSets = useLiveQuery(() => db.sets.toArray(), [], []);
   const at: Position | undefined = open ?? position;
   const cfg = useLiveQuery(() => (at ? getCycleConfig(at.cycle) : undefined), [at?.cycle]);
@@ -39,7 +52,7 @@ export function WorkoutScreen({ onCycleEnd }: { onCycleEnd?: (cycle: number) => 
   const [openId, setOpenId] = useState<string | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
 
-  if (!at || open === undefined || !cfg) return <div className="screen" />;
+  if (!at || open === undefined || pendingEnd === undefined || !cfg) return <div className="screen" />;
 
   const { week, type, rir } = dayInfo(at.day);
   const day = DAYS[type];
@@ -52,8 +65,9 @@ export function WorkoutScreen({ onCycleEnd }: { onCycleEnd?: (cycle: number) => 
 
   const save = async (exerciseId: string, kind: 'warmup' | 'work', index: number, v: SetValues) => {
     if (!open?.id) return;
-    await saveSet({ workoutId: open.id, cycle: open.cycle, day: open.day, exerciseId, kind, index, ...v });
+    // Таймер (и звук) запускаем до первого await — iOS разрешает звук только внутри нажатия.
     rest.start(kind === 'work' ? REST_WORK : REST_WARMUP);
+    await saveSet({ workoutId: open.id, cycle: open.cycle, day: open.day, exerciseId, kind, index, ...v });
   };
 
   const undo = async (exerciseId: string, kind: 'warmup' | 'work', index: number) => {
@@ -63,11 +77,18 @@ export function WorkoutScreen({ onCycleEnd }: { onCycleEnd?: (cycle: number) => 
   const finish = async () => {
     if (!open?.id) return;
     if (workDone < workTotal && !confirm(`Сделано ${workDone} из ${workTotal} подходов. Завершить тренировку?`)) return;
-    const next = await finishWorkout(open.id);
+    const { next, cycleEnd } = await finishWorkout(open.id);
     rest.stop();
     setOpenId(null);
     const tonnage = statsSummary([{ ...open, finishedAt: Date.now() }], current, 0).tonnage;
-    setSummary({ minutes: Math.round((Date.now() - open.startedAt) / 60000), sets: workDone, tonnage, cycle: open.cycle, next });
+    setSummary({ minutes: Math.round((Date.now() - open.startedAt) / 60000), sets: workDone, tonnage, cycle: open.cycle, cycleEnd, next });
+  };
+
+  const cancel = async () => {
+    if (!open?.id || !confirm('Отменить тренировку? Она не сохранится.')) return;
+    rest.stop();
+    setOpenId(null);
+    await discardWorkout(open.id);
   };
 
   if (summary) {
@@ -91,17 +112,34 @@ export function WorkoutScreen({ onCycleEnd }: { onCycleEnd?: (cycle: number) => 
           </div>
         </div>
         <p className="muted">
-          Следующая: день {summary.next.day} · неделя {n.week} · «{n.type}»{summary.next.cycle !== summary.cycle ? ` · цикл ${summary.next.cycle}` : ''}
+          {summary.cycleEnd
+            ? `Цикл ${summary.cycle} завершён! Осталось выбрать, с каких весов начать цикл ${summary.next.cycle}.`
+            : `Следующая: день ${summary.next.day} · неделя ${n.week} · «${n.type}»`}
         </p>
         <button
           className="btn primary block"
           onClick={() => {
             setSummary(null);
-            if (summary.next.day === 1 && summary.next.cycle > 1) onCycleEnd?.(summary.next.cycle - 1);
+            if (summary.cycleEnd) onCycleEnd?.(summary.cycle);
           }}
         >
           Ок
         </button>
+      </div>
+    );
+  }
+
+  if (pendingEnd !== null && !open) {
+    return (
+      <div className="screen">
+        <h1 className="screen-title">Тренировка</h1>
+        <div className="card stack">
+          <h2 className="card-title">Цикл {pendingEnd} завершён 🎉</h2>
+          <p className="muted">Выбери, с каких весов начать цикл {pendingEnd + 1}.</p>
+          <button className="btn primary block" onClick={() => onCycleEnd?.(pendingEnd)}>
+            Выбрать веса нового цикла
+          </button>
+        </div>
       </div>
     );
   }
@@ -138,7 +176,13 @@ export function WorkoutScreen({ onCycleEnd }: { onCycleEnd?: (cycle: number) => 
       </div>
 
       {!open && (
-        <button className="btn primary block start-btn" onClick={() => startWorkout(at)}>
+        <button
+          className="btn primary block start-btn"
+          onClick={() => {
+            unlockAudio();
+            void startWorkout(at);
+          }}
+        >
           Начать тренировку
         </button>
       )}
@@ -164,6 +208,11 @@ export function WorkoutScreen({ onCycleEnd }: { onCycleEnd?: (cycle: number) => 
       {open && (
         <button className="btn block finish-btn" onClick={finish}>
           Завершить тренировку
+        </button>
+      )}
+      {open && workDone === 0 && (
+        <button className="btn block cancel-btn" onClick={cancel}>
+          Отменить тренировку
         </button>
       )}
 

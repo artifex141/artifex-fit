@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { WeightRule } from '../../program/types';
 
 export interface SetValues {
@@ -47,8 +47,12 @@ export function SetRow({ n, rule, step, initial, done, withDrop, disabled, onSav
   const [drop, setDrop] = useState(initial.dropReps === undefined ? '' : String(initial.dropReps));
 
   // Подставленный вес мог поменяться (например, после записи прошлого подхода) — обновляем, пока подход не выполнен.
+  // Сразу после отмены подхода оставляем в полях записанные значения.
+  const wasDone = useRef(done);
   useEffect(() => {
-    if (!done) setLb(initial.lb === null ? '' : String(initial.lb));
+    const justUndone = wasDone.current && !done;
+    wasDone.current = done;
+    if (!done && !justUndone) setLb(initial.lb === null ? '' : String(initial.lb));
   }, [initial.lb, done]);
 
   const lbN = num(lb);

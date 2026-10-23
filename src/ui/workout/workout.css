@@ -12,6 +12,7 @@
 .week-chips { margin-bottom: 16px; }
 .start-btn { margin-bottom: 16px; }
 .finish-btn { margin-top: 20px; }
+.cancel-btn { margin-top: 10px; color: var(--muted); }
 
 .ex-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
 .ex-card.complete { border-color: rgba(53, 196, 107, 0.35); }

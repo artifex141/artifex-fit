@@ -4,10 +4,12 @@ import { db } from './db';
 import {
   allSets,
   deleteSet,
+  discardWorkout,
   exportAll,
   finishWorkout,
   getCycleConfig,
   getOpenWorkout,
+  getPendingCycleEnd,
   getPosition,
   importAll,
   saveCycleConfig,
@@ -58,7 +60,7 @@ test('незавершённая тренировка находится пос�
 
 test('завершение тренировки двигает позицию на следующий день', async () => {
   const id = await startWorkout({ cycle: 1, day: 12 });
-  expect(await finishWorkout(id)).toEqual({ cycle: 1, day: 15 });
+  expect(await finishWorkout(id)).toEqual({ next: { cycle: 1, day: 15 }, cycleEnd: false });
   expect(await getPosition()).toEqual({ cycle: 1, day: 15 });
   expect(await getOpenWorkout()).toBeUndefined();
 });
@@ -82,6 +84,37 @@ test('новый цикл: настройки считаются по прошл
   const cfg = await getCycleConfig(2);
   expect(cfg.startWeights['ez-curl']).toBe(55);
   expect(cfg.offsets['db-bench-press']).toBe(5);
+});
+
+test('последняя тренировка цикла не переводит на новый цикл, а ждёт выбора весов', async () => {
+  await setPosition({ cycle: 1, day: 33 });
+  const id = await startWorkout({ cycle: 1, day: 33 });
+  expect((await finishWorkout(id)).cycleEnd).toBe(true);
+  expect(await getPendingCycleEnd()).toBe(1);
+  expect(await getPosition()).toEqual({ cycle: 1, day: 33 });
+  await startNextCycle(1, 'program');
+  expect(await getPendingCycleEnd()).toBeNull();
+  expect(await getPosition()).toEqual({ cycle: 2, day: 1 });
+});
+
+test('двойное нажатие «Начать» не создаёт вторую тренировку', async () => {
+  const [a, b] = await Promise.all([startWorkout({ cycle: 1, day: 12 }), startWorkout({ cycle: 1, day: 12 })]);
+  expect(a).toBe(b);
+  expect(await db.workouts.count()).toBe(1);
+});
+
+test('отмена тренировки удаляет её и разминку, позиция не меняется', async () => {
+  const id = await startWorkout({ cycle: 1, day: 12 });
+  await saveSet({ ...base, kind: 'warmup', workoutId: id, index: 0, lb: 0, reps: 0 });
+  await discardWorkout(id);
+  expect(await db.workouts.count()).toBe(0);
+  expect(await allSets()).toHaveLength(0);
+  expect(await getOpenWorkout()).toBeUndefined();
+  expect(await getPosition()).toEqual({ cycle: 1, day: 12 });
+});
+
+test('битый файл: понятная ошибка на русском', async () => {
+  await expect(importAll('{bad')).rejects.toThrow('Файл повреждён');
 });
 
 test('битый файл не трогает данные', async () => {

@@ -105,7 +105,7 @@ function baseTarget(p: Prescription, exerciseId: string, cycle: number, log: Log
     case 'anchor': {
       const h = anchorWeight(exerciseId, rule.week, cycle, log, cfg);
       return h === null
-        ? { lb: null, ...reps, source: 'unknown', hint: `Введи свой вес Н${rule.week}` }
+        ? { lb: null, ...reps, source: 'unknown', hint: rule.deltaLb ? `Нет веса Н${rule.week}: введи вес этой недели (Н${rule.week} +${rule.deltaLb} lb)` : `Введи свой вес Н${rule.week}` }
         : { lb: roundTo(h + rule.deltaLb, step), ...reps, source: 'anchor' };
     }
     case 'pct': {

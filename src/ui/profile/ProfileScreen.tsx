@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useRef, useState } from 'react';
-import { exportAll, getCycleConfig, getOpenWorkout, getPosition, importAll, saveCycleConfig, setPosition } from '../../db/repo';
+import { exportAll, getCycleConfig, getOpenWorkout, getPendingCycleEnd, getPosition, importAll, saveCycleConfig, setPosition } from '../../db/repo';
 import { EXERCISES } from '../../program/exercises';
 import { DAYS } from '../../program/program';
 import { TRAINING_DAYS, dayInfo } from '../../program/schedule';
@@ -145,15 +145,18 @@ function Backup() {
 
 export function ProfileScreen({ onNewCycle }: { onNewCycle: (cycle: number) => void }) {
   const pos = useLiveQuery(getPosition);
+  const open = useLiveQuery(async () => (await getOpenWorkout()) ?? null);
+  const pendingEnd = useLiveQuery(getPendingCycleEnd);
+  const endCycle = pendingEnd ?? pos?.cycle;
   return (
     <div className="screen stack">
       <h1 className="screen-title">Профиль</h1>
       <Position />
       <StartWeights />
       <Backup />
-      {pos && (
-        <button className="btn block" onClick={() => onNewCycle(pos.cycle)}>
-          Завершить цикл {pos.cycle} и начать новый
+      {endCycle !== undefined && (
+        <button className="btn block" disabled={!!open} onClick={() => onNewCycle(endCycle)}>
+          Завершить цикл {endCycle} и начать новый
         </button>
       )}
       <p className="muted small center">Artifex Fit · версия {__APP_VERSION__}</p>

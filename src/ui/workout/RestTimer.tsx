@@ -29,7 +29,7 @@ function save(s: RestState | null) {
 
 let audio: AudioContext | null = null;
 
-/** Короткий сигнал. AudioContext создаётся по жесту пользователя (в start), иначе iOS его не запустит. */
+/** Короткий сигнал; работает, если звук был разблокирован нажатием (unlockAudio). */
 function beep() {
   if (!audio || document.visibilityState !== 'visible') return;
   const t = audio.currentTime;
@@ -46,15 +46,20 @@ function beep() {
   navigator.vibrate?.(300);
 }
 
+/** Создаёт и запускает AudioContext. Вызывать синхронно внутри нажатия, иначе iOS оставит его выключенным. */
+export function unlockAudio() {
+  try {
+    audio ??= new AudioContext();
+    void audio.resume();
+  } catch {
+    audio = null;
+  }
+}
+
 export function useRestTimer() {
   const [state, setState] = useState<RestState | null>(load);
   const start = useCallback((duration: number) => {
-    try {
-      audio ??= new AudioContext();
-      void audio.resume();
-    } catch {
-      audio = null;
-    }
+    unlockAudio();
     const s = { startedAt: Date.now(), duration };
     save(s);
     setState(s);
