@@ -5,3 +5,4 @@ dev-dist/
 coverage/
 *.local
 .DS_Store
+.superpowers/
