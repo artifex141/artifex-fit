@@ -1,10 +1,11 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { exportAll, getCycleConfig, getOpenWorkout, getPendingCycleEnd, getPosition, importAll, saveCycleConfig, setPosition } from '../../db/repo';
 import { EXERCISES } from '../../program/exercises';
 import { DAYS } from '../../program/program';
 import { TRAINING_DAYS, dayInfo } from '../../program/schedule';
 import type { DayType } from '../../program/types';
+import { cachedBody, loadBody, metric, type BodyData } from '../../body/body';
 import { push } from '../../push/push';
 import './profile.css';
 
@@ -150,6 +151,79 @@ function PushSettings() {
   );
 }
 
+const API = import.meta.env.VITE_PUSH_API ?? 'https://fit.artifex.mobi';
+
+function ZeppLife() {
+  const [data, setData] = useState<BodyData>(cachedBody);
+  const [copied, setCopied] = useState(false);
+  const id = push.deviceId();
+  useEffect(() => {
+    void loadBody().then(setData);
+  }, []);
+  const w = metric(data.weight, Date.now());
+  const f = metric(data.bodyFat, Date.now());
+  const day = (t: number) => new Date(t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(id);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  return (
+    <section className="card stack">
+      <h2 className="card-title">Вес и состав тела из Zepp Life</h2>
+      <p className="small">
+        {w ? (
+          <>
+            Последний замер: <b>{w.value} кг</b>
+            {f ? `, жир ${f.value}%` : ''} — {day(w.lastDate)}
+          </>
+        ) : (
+          <span className="muted">Данных пока нет — на «Прогрессе» показаны демо-значения.</span>
+        )}
+      </p>
+      <div className="row">
+        <code className="device-id">{id}</code>
+        <button className="btn" onClick={copy}>
+          {copied ? 'Скопировано' : 'Копировать ID'}
+        </button>
+      </div>
+      <details className="howto">
+        <summary>Как настроить (один раз, ~5 минут)</summary>
+        <ol>
+          <li>
+            <b>Zepp Life → Профиль → Добавить учётные записи → Apple «Здоровье»</b> — включи. В приложении «Здоровье» разреши Zepp Life записывать «Вес» и «Процент жира».
+          </li>
+          <li>
+            Открой <b>«Команды» → «+»</b>, назови команду <b>Artifex: замеры</b>.
+          </li>
+          <li>
+            Добавь действие <b>«Найти образцы данных Здоровья»</b>: Тип — <b>Вес</b>, «Дата начала» — <b>за последние 30 дней</b>, сортировка — по дате начала, ограничение — 30.
+          </li>
+          <li>
+            Добавь <b>«Повторить с каждым»</b> для найденных образцов, внутри — <b>«Получить содержимое URL»</b>:
+            <br />URL: <code>{API}/api/body</code>
+            <br />Метод: <b>POST</b>, Тело запроса: <b>JSON</b>, поля (все — «Текст»):
+            <br />
+            <code>deviceId</code> = твой ID (кнопка выше), <code>type</code> = <code>weight</code>, <code>value</code> = «Объект повтора» → <b>Значение</b>, <code>unit</code> = «Объект повтора» → <b>Единица</b>, <code>date</code> = «Объект повтора» → <b>Дата начала</b> (в настройках переменной выбери формат <b>ISO 8601</b>).
+          </li>
+          <li>
+            Повтори шаги 3–4 для типа <b>Процент жира</b> с <code>type</code> = <code>bodyFat</code>.
+          </li>
+          <li>
+            «Команды» → <b>Автоматизация → «+» → Время суток</b> (например, 9:00, ежедневно) → <b>«Запускать сразу»</b> → выбери «Artifex: замеры». Один раз запусти команду вручную.
+          </li>
+        </ol>
+        <p className="muted small">Мышечная масса, вода и костная масса в «Здоровье» не передаются — эти блоки пока демо.</p>
+      </details>
+    </section>
+  );
+}
+
 function Backup() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -212,6 +286,7 @@ export function ProfileScreen({ onNewCycle }: { onNewCycle: (cycle: number) => v
       <h1 className="screen-title">Профиль</h1>
       <Position />
       <PushSettings />
+      <ZeppLife />
       <StartWeights />
       <Backup />
       {endCycle !== undefined && (

@@ -15,3 +15,8 @@
 .option { min-height: 64px; text-align: left; justify-content: flex-start; }
 .option span { display: flex; flex-direction: column; gap: 2px; }
 .option small { font-weight: 400; font-size: 13px; opacity: 0.8; }
+
+.device-id { flex: 1; min-width: 0; padding: 10px 12px; border-radius: 12px; background: #0f151a; border: 1px solid var(--line-strong); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent); }
+.howto summary { cursor: pointer; color: var(--accent); font-size: 14px; }
+.howto ol { padding-left: 20px; margin: 10px 0 0; display: flex; flex-direction: column; gap: 10px; font-size: 13px; line-height: 1.45; }
+.howto code { font-size: 12px; color: var(--accent); word-break: break-all; }

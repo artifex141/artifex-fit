@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 export function createStore(file) {
-  let data = { devices: {}, jobs: [] };
+  let data = { devices: {}, jobs: [], body: {} };
   if (file) {
     try {
       data = { ...data, ...JSON.parse(readFileSync(file, 'utf8')) };
@@ -28,6 +28,19 @@ export function createStore(file) {
       data.jobs = data.jobs.filter((j) => j.deviceId !== id);
       save();
     },
+    /** Замер тела: { type, date (мс), value }; замер того же типа за ту же минуту заменяется. */
+    addBody(deviceId, { type, date, value }) {
+      const dev = (data.body[deviceId] ??= {});
+      const list = (dev[type] ??= []);
+      const minute = Math.floor(date / 60_000);
+      const i = list.findIndex((x) => Math.floor(x.date / 60_000) === minute);
+      if (i >= 0) list[i] = { date, value };
+      else list.push({ date, value });
+      list.sort((a, b) => a.date - b.date);
+      if (list.length > 2000) list.splice(0, list.length - 2000);
+      save();
+    },
+    getBody: (deviceId) => data.body[deviceId] ?? {},
     jobs: () => data.jobs,
     setJobs(jobs) {
       data.jobs = jobs;

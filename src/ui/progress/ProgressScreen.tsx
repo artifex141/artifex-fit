@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { cachedBody, loadBody, metric, type BodyData } from '../../body/body';
 import { db } from '../../db/db';
 import { EXERCISES } from '../../program/exercises';
 import { change, periodStart, summary, weightSeries, type Period } from '../../program/stats';
@@ -71,9 +72,11 @@ function Metric({ value, unit, label, delta, up }: { value: string; unit: string
       </span>
       <span className="p-metric-row">
         <span className="p-metric-label">{label}</span>
-        <span className="p-metric-delta">
-          {up ? '↑' : '↘'} {delta}
-        </span>
+        {delta && (
+          <span className="p-metric-delta">
+            {up ? '↑' : '↘'} {delta}
+          </span>
+        )}
       </span>
     </div>
   );
@@ -84,6 +87,10 @@ export function ProgressScreen() {
   const workouts = useLiveQuery(() => db.workouts.toArray(), [], []);
   const sets = useLiveQuery(() => db.sets.toArray(), [], []);
   const [picked, setPicked] = useState<string>('');
+  const [bodyData, setBodyData] = useState<BodyData>(cachedBody);
+  useEffect(() => {
+    void loadBody().then(setBodyData);
+  }, []);
 
   const now = Date.now();
   const from = periodStart(period, now);
@@ -93,8 +100,11 @@ export function ProgressScreen() {
   const caption = PERIODS.find((x) => x.id === period)!.caption;
   const countDelta = change(s.count, p.count).abs;
 
-  // Демо: вес тела, пульс в покое, сон — пока нет весов и часов.
-  const body = demoBodyWeight(now);
+  // Вес и жир — из Zepp Life (через Health и «Команды»), если пришли; иначе демо.
+  const weight = metric(bodyData.weight, now);
+  const fat = metric(bodyData.bodyFat, now);
+  const body = weight && weight.series.length > 0 ? weight.series : demoBodyWeight(now);
+  const sign = (v: number) => (v > 0 ? `+${v}` : `${v}`);
   const rhr = demoDaily(30, 64, 9, 11).map((v, i) => ({ date: now - (29 - i) * DAY, lb: v }));
   rhr[rhr.length - 1].lb = 62;
   const sleepDeep = demoDaily(30, 5.2, 3, 5);
@@ -161,14 +171,23 @@ export function ProgressScreen() {
         <div className="p-split">
           <div className="p-big">
             <span className="p-big-value">
-              80.2<small> кг</small>
+              {weight ? weight.value : 80.2}
+              <small> кг</small>
             </span>
-            <span className="p-big-delta">
-              -1.4 кг <Up up={false} />
-            </span>
+            {weight ? (
+              weight.delta !== null && (
+                <span className="p-big-delta">
+                  {sign(weight.delta)} кг <Up up={weight.delta > 0} />
+                </span>
+              )
+            ) : (
+              <span className="p-big-delta">
+                -1.4 кг <Up up={false} />
+              </span>
+            )}
             <span className="p-big-caption">за 4 недели</span>
           </div>
-          <AreaChart points={body} unit="кг" ticks={[84, 82, 80, 78]} dateTicks={5} />
+          <AreaChart points={body} unit="кг" ticks={weight ? undefined : [84, 82, 80, 78]} dateTicks={5} />
         </div>
       </section>
 
@@ -179,7 +198,11 @@ export function ProgressScreen() {
         </div>
         <div className="p-body-grid">
           <div className="p-metrics">
-            <Metric value="15.2" unit="%" label="Жир" delta="-2.1%" up={false} />
+            {fat ? (
+              <Metric value={String(fat.value)} unit="%" label="Жир" delta={fat.delta !== null ? `${sign(fat.delta)}%` : ''} up={(fat.delta ?? 0) > 0} />
+            ) : (
+              <Metric value="15.2" unit="%" label="Жир" delta="-2.1%" up={false} />
+            )}
             <Metric value="72.0" unit=" кг" label="Мышечная масса" delta="+1.8 кг" up />
           </div>
           <img className="p-figure" src={`${import.meta.env.BASE_URL}ui/body-figure.webp`} alt="" />

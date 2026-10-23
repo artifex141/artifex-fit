@@ -104,3 +104,35 @@ test('хранилище переживает перезапуск', () => {
   assert.deepEqual(b.getDevice('d1'), SUB);
   assert.equal(b.jobs().length, 1);
 });
+
+test('замеры из «Команд»: без origin, вес и жир нормализуются, повтор за ту же минуту заменяется', async () => {
+  const dev = '0b5c1f0e-1111-4222-8333-444455556666';
+  const send = (body) => fetch(base + '/api/body', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  assert.equal((await send({ deviceId: dev, type: 'weight', value: '80,2', unit: 'kg', date: '2026-10-20T08:00:00+03:00' })).status, 204);
+  assert.equal((await send({ deviceId: dev, type: 'weight', value: 176.4, unit: 'lb', date: '2026-10-21T08:00:00+03:00' })).status, 204);
+  assert.equal((await send({ deviceId: dev, type: 'bodyFat', value: 0.152, date: '2026-10-21T08:00:30+03:00' })).status, 204);
+  assert.equal((await send({ deviceId: dev, type: 'bodyFat', value: 15.4, date: '2026-10-21T08:00:10+03:00' })).status, 204);
+  assert.equal((await send({ deviceId: dev, type: 'weight', value: 'много' })).status, 400);
+  assert.equal((await send({ deviceId: dev, type: 'рост', value: 180 })).status, 400);
+
+  const r = await fetch(`${base}/api/body?deviceId=${dev}`, { headers: { origin: ORIGIN } });
+  assert.equal(r.headers.get('access-control-allow-origin'), ORIGIN);
+  const data = await r.json();
+  assert.deepEqual(data.weight.map((x) => x.value), [80.2, 80]);
+  assert.deepEqual(data.bodyFat.map((x) => x.value), [15.4]);
+});
+
+test('пакет замеров одним запросом', async () => {
+  const dev = '0b5c1f0e-1111-4222-8333-444455557777';
+  const r = await post('/api/body', {
+    deviceId: dev,
+    samples: [
+      { type: 'weight', value: 81, date: '2026-10-01T08:00:00Z' },
+      { type: 'leanMass', value: 72, date: '2026-10-01T08:00:00Z' },
+    ],
+  });
+  assert.equal(r.status, 204);
+  const data = await (await fetch(`${base}/api/body?deviceId=${dev}`)).json();
+  assert.equal(data.weight.length, 1);
+  assert.equal(data.leanMass[0].value, 72);
+});

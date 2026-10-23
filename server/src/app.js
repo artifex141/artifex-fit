@@ -1,7 +1,22 @@
 // HTTP API: подписка устройства, запланировать/отменить уведомление о конце отдыха.
 import { createScheduler } from './scheduler.js';
 
-const MAX_BODY = 16 * 1024;
+const MAX_BODY = 256 * 1024;
+const BODY_TYPES = ['weight', 'bodyFat', 'leanMass', 'bmi'];
+const UUIDISH = /^[0-9a-zA-Z-]{8,64}$/;
+
+/** Замер из «Команд» → { type, date, value } или null. Вес в кг, жир в процентах. */
+export function normalizeSample(raw, now) {
+  if (!raw || !BODY_TYPES.includes(raw.type)) return null;
+  let value = typeof raw.value === 'number' ? raw.value : parseFloat(String(raw.value ?? '').replace(',', '.'));
+  if (!Number.isFinite(value) || value <= 0) return null;
+  const unit = String(raw.unit ?? '').toLowerCase();
+  if ((raw.type === 'weight' || raw.type === 'leanMass') && (unit === 'lb' || unit === 'lbs' || unit.startsWith('фунт'))) value *= 0.45359237;
+  if (raw.type === 'bodyFat' && value <= 1) value *= 100;
+  const parsed = raw.date ? Date.parse(raw.date) : NaN;
+  const date = Number.isFinite(parsed) ? parsed : now;
+  return { type: raw.type, date, value: Math.round(value * 10) / 10 };
+}
 
 /**
  * @param {{
@@ -77,10 +92,24 @@ export function createApp({ store, clock, send, publicKey, origins, log = () => 
       if (origin && !origins.includes(origin)) return reply(res, 403, { error: 'origin' });
       if (req.method === 'OPTIONS') return reply(res, 204, undefined, origin);
       if (route === 'GET /api/vapid') return reply(res, 200, { publicKey }, origin);
+      if (route === 'GET /api/body') {
+        const id = url.searchParams.get('deviceId') ?? '';
+        if (!UUIDISH.test(id)) return reply(res, 400, { error: 'deviceId' }, origin);
+        return reply(res, 200, store.getBody(id), origin);
+      }
 
       if (req.method !== 'POST') return reply(res, 404, { error: 'not found' }, origin);
       const body = await readJson(req).catch(() => null);
       if (!body || !isStr(body.deviceId, 64)) return reply(res, 400, { error: 'deviceId' }, origin);
+
+      if (route === 'POST /api/body') {
+        if (!UUIDISH.test(body.deviceId)) return reply(res, 400, { error: 'deviceId' }, origin);
+        const raws = Array.isArray(body.samples) ? body.samples.slice(0, 1000) : [body];
+        const samples = raws.map((r) => normalizeSample(r, clock.now()));
+        if (samples.length === 0 || samples.some((x) => !x)) return reply(res, 400, { error: 'sample' }, origin);
+        for (const x of samples) store.addBody(body.deviceId, x);
+        return reply(res, 204, undefined, origin);
+      }
 
       if (route === 'POST /api/subscribe') {
         const s = body.subscription;
