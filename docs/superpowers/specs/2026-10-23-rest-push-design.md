@@ -38,3 +38,6 @@
 3. Связать с таймером отдыха и профилем → коммит.
 4. VPS: копия `server/` в `/opt/artifex-fit-push`, `.env` с VAPID, `docker run` на `127.0.0.1:8097`, Caddy-блок, `caddy validate`, `systemctl reload caddy`, проверка `https://fit.artifex.mobi/api/health`.
 5. Публикация приложения, проверка подписки и тестового push.
+
+## Эксплуатация (2026-10-23)
+- «Команды» на iOS 18 не могли отправить POST на `fit.artifex.mobi` по HTTP/3 (QUIC-рукопожатие обрывалось, на TCP не переключались → «The network connection was lost»). Решение: в `/etc/caddy/artifex-fit.caddy` заголовок `Alt-Svc "clear"` — только для этого хоста. Журнал запросов Caddy: `/var/log/caddy/artifex-fit.log`.
