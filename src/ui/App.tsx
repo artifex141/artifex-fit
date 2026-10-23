@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { TabBar, type Tab } from './TabBar';
+import { ProgressScreen } from './progress/ProgressScreen';
 import { WorkoutScreen } from './workout/WorkoutScreen';
 
 function Placeholder({ title }: { title: string }) {
@@ -15,7 +16,7 @@ export function App() {
   return (
     <>
       {tab === 'workout' && <WorkoutScreen />}
-      {tab === 'progress' && <Placeholder title="Прогресс" />}
+      {tab === 'progress' && <ProgressScreen />}
       {tab === 'nutrition' && <Placeholder title="Питание" />}
       {tab === 'profile' && <Placeholder title="Профиль" />}
       <TabBar tab={tab} onChange={setTab} />

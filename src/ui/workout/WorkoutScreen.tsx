@@ -4,6 +4,7 @@ import { db } from '../../db/db';
 import { deleteSet, finishWorkout, getCycleConfig, getOpenWorkout, getPosition, saveSet, startWorkout, type Position } from '../../db/repo';
 import { DAYS } from '../../program/program';
 import { dayInfo } from '../../program/schedule';
+import { summary as statsSummary } from '../../program/stats';
 import { targetFor } from '../../program/weights';
 import { useNow } from '../useNow';
 import { ExerciseCard } from './ExerciseCard';
@@ -18,6 +19,8 @@ const REST_WARMUP = 60;
 interface Summary {
   minutes: number;
   sets: number;
+  tonnage: number;
+  cycle: number;
   next: Position;
 }
 
@@ -63,7 +66,8 @@ export function WorkoutScreen({ onCycleEnd }: { onCycleEnd?: (cycle: number) => 
     const next = await finishWorkout(open.id);
     rest.stop();
     setOpenId(null);
-    setSummary({ minutes: Math.round((Date.now() - open.startedAt) / 60000), sets: workDone, next });
+    const tonnage = statsSummary([{ ...open, finishedAt: Date.now() }], current, 0).tonnage;
+    setSummary({ minutes: Math.round((Date.now() - open.startedAt) / 60000), sets: workDone, tonnage, cycle: open.cycle, next });
   };
 
   if (summary) {
@@ -81,9 +85,13 @@ export function WorkoutScreen({ onCycleEnd }: { onCycleEnd?: (cycle: number) => 
             <div className="muted">Рабочих подходов</div>
             <div className="big">{summary.sets}</div>
           </div>
+          <div className="card wide">
+            <div className="muted">Тоннаж</div>
+            <div className="big">{summary.tonnage.toLocaleString('ru-RU')} lb</div>
+          </div>
         </div>
         <p className="muted">
-          Следующая: день {summary.next.day} · неделя {n.week} · «{n.type}»{summary.next.cycle !== open?.cycle ? ` · цикл ${summary.next.cycle}` : ''}
+          Следующая: день {summary.next.day} · неделя {n.week} · «{n.type}»{summary.next.cycle !== summary.cycle ? ` · цикл ${summary.next.cycle}` : ''}
         </p>
         <button
           className="btn primary block"
