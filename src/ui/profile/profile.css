@@ -12,12 +12,6 @@
 }
 .weight-row .weight-input { width: 76px; flex: none; text-align: center; }
 
-.dialog-backdrop {
-  position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, 0.6);
-  display: flex; align-items: flex-end; justify-content: center; padding: 16px;
-  padding-bottom: calc(env(safe-area-inset-bottom) + 16px);
-}
-.dialog { width: 100%; max-width: 520px; }
 .option { min-height: 64px; text-align: left; justify-content: flex-start; }
 .option span { display: flex; flex-direction: column; gap: 2px; }
 .option small { font-weight: 400; font-size: 13px; opacity: 0.8; }

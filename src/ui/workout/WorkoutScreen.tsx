@@ -194,9 +194,9 @@ export function WorkoutScreen({ onCycleEnd }: { onCycleEnd?: (cycle: number) => 
           </p>
         </div>
         <button className="w-clock" onClick={() => setSheet(open ? 'finish' : 'notStarted')}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <circle cx="12" cy="13" r="8" />
-            <path d="M12 9v4l2.5 2M5 4.5 3 6.5M19 4.5l2 2" />
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="13" r="7.5" />
+            <path d="M12 9.5V13l2.5 1.5M4.5 5.5l2.5-2M19.5 5.5l-2.5-2M7 19.5l-1.5 1.5M17 19.5l1.5 1.5" />
           </svg>
           <span>
             <span className="w-clock-time">
@@ -205,7 +205,7 @@ export function WorkoutScreen({ onCycleEnd }: { onCycleEnd?: (cycle: number) => 
             <span className="w-clock-label">Время тренировки</span>
           </span>
         </button>
-        <button className="round-btn big" aria-label="Меню" onClick={() => setSheet('menu')}>
+        <button className="glass-btn menu-btn" aria-label="Меню" onClick={() => setSheet('menu')}>
           <svg viewBox="0 0 24 24" fill="currentColor">
             <circle cx="5" cy="12" r="2" />
             <circle cx="12" cy="12" r="2" />

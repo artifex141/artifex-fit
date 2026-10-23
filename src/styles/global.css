@@ -1,16 +1,25 @@
+/* Цвета сняты с макетов: тёмно-синий фон, золотисто-жёлтый акцент, голубовато-серый вторичный текст. */
 :root {
-  --bg: #0b0d10;
-  --card: #15181d;
-  --card-2: #1c2026;
-  --line: #262b33;
-  --text: #f4f5f7;
-  --muted: #8b929c;
-  --accent: #ffd60a;
-  --accent-ink: #1a1500;
+  --bg: #0e1419;
+  --card: #10171c;
+  --card-2: #151c22;
+  --line: rgba(255, 255, 255, 0.07);
+  --line-strong: rgba(255, 255, 255, 0.1);
+  --text: #f1f4f7;
+  --muted: #8d9db1;
+  --accent: #f5c518;
+  --accent-hi: #ffd84a;
+  --accent-ink: #1e1500;
   --ok: #35c46b;
-  --warn: #ffb020;
-  --radius: 18px;
-  --tabbar-h: 84px;
+  --warn: #f5c518;
+  --radius: 22px;
+  --tabbar-h: 11.6rem;
+  --surface: linear-gradient(180deg, #141b21 0%, #0f151a 100%);
+  --glass: radial-gradient(circle at 35% 25%, #2a333d 0%, #182028 55%, #11171c 100%);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.07), 0 6px 14px rgba(0, 0, 0, 0.45);
+  --gold: radial-gradient(circle at 50% 30%, #b08a12 0%, #6a5109 65%, #3d2f05 100%);
+  --gold-glow: 0 0 18px rgba(245, 197, 24, 0.45), inset 0 1px 2px rgba(255, 230, 120, 0.35);
   color-scheme: dark;
 }
 
@@ -18,10 +27,14 @@
 
 html, body, #root { margin: 0; min-height: 100%; }
 
+/* 1rem = 1/94.1 ширины экрана: размеры из макета (941 px) переносятся как px/10 rem. */
+html { font-size: calc(min(100vw, 480px) / 94.1); }
+body { font-size: 16px; }
+
 body {
-  background: var(--bg);
+  background: radial-gradient(130% 55% at 50% 0%, #1d2731 0%, #121a20 45%, #0c1115 100%) fixed, var(--bg);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, system-ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Segoe UI', Roboto, system-ui, sans-serif;
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
@@ -38,11 +51,11 @@ button { cursor: pointer; border: 0; background: none; padding: 0; }
   margin: 0 auto;
 }
 
-.screen-title { font-size: 34px; font-weight: 800; letter-spacing: -0.5px; margin: 8px 0 2px; }
+.screen-title { font-size: 32px; font-weight: 700; letter-spacing: -0.4px; margin: 8px 0 2px; }
 .screen-sub { color: var(--muted); font-size: 17px; margin: 0 0 16px; }
 
 .card {
-  background: var(--card);
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 16px;
@@ -60,10 +73,10 @@ button { cursor: pointer; border: 0; background: none; padding: 0; }
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  min-height: 48px; padding: 0 20px; border-radius: 14px;
-  background: var(--card-2); border: 1px solid var(--line); font-weight: 600;
+  min-height: 48px; padding: 0 20px; border-radius: 16px;
+  background: var(--glass); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); font-weight: 600;
 }
-.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.primary { background: var(--gold); color: var(--accent-hi); border-color: rgba(245, 197, 24, 0.55); box-shadow: var(--gold-glow); }
 .btn.block { width: 100%; }
 .btn:disabled { opacity: 0.4; }
 
@@ -73,8 +86,34 @@ button { cursor: pointer; border: 0; background: none; padding: 0; }
 
 .field {
   width: 100%; min-height: 44px; padding: 0 12px;
-  background: var(--card-2); border: 1px solid var(--line); border-radius: 12px;
+  background: #0f151a; border: 1px solid var(--line-strong); border-radius: 12px;
 }
 
 .row { display: flex; align-items: center; gap: 12px; }
 .spacer { flex: 1; }
+
+/* Стеклянная круглая кнопка (≡ «…», ˄, ›, пауза на макете) */
+.glass-btn {
+  flex: none; border-radius: 50%; display: grid; place-items: center;
+  background: var(--glass); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow);
+  color: var(--muted);
+}
+.glass-btn svg { width: 45%; height: 45%; }
+.glass-btn.accent { color: var(--accent); }
+
+/* Номер в круге с дугой подсветки */
+.num-ring { position: relative; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--glass); box-shadow: var(--glass-shadow); color: var(--muted); }
+.num-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.num-ring-track { fill: none; stroke: rgba(255, 255, 255, 0.07); stroke-width: 1; }
+.num-ring-arc { fill: none; stroke-width: 2.2; stroke-linecap: round; filter: drop-shadow(0 0 3px rgba(245, 197, 24, 0.8)); }
+.num-ring.on { color: var(--accent); background: radial-gradient(circle at 40% 35%, #262116 0%, #141410 70%); box-shadow: 0 0 14px rgba(245, 197, 24, 0.18); }
+.num-ring-n { position: relative; font-weight: 400; }
+
+/* Нижний лист (подтверждения, меню) */
+.dialog-backdrop {
+  position: fixed; inset: 0; z-index: 50; background: rgba(4, 8, 12, 0.65);
+  display: flex; align-items: flex-end; justify-content: center; padding: 16px;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 16px);
+}
+.dialog { width: 100%; max-width: 520px; }
+.card-title { font-size: 18px; font-weight: 600; margin: 0; }

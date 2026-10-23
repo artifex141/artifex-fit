@@ -26,6 +26,7 @@ export interface Exercise {
   id: string;
   name: string;
   muscles: string;
+  note?: string; // уточнение к технике, например угол скамьи
   equipment: 'dumbbell' | 'other';
   image: ExerciseImage;
 }

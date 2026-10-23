@@ -3,30 +3,27 @@ import { stepFor, warmupFor } from '../../program/program';
 import type { ProgramExercise, Week } from '../../program/types';
 import type { Target } from '../../program/weights';
 import type { SetRow as SetRecord } from '../../db/repo';
+import { ChevronIcon, NumRing } from '../kit';
 import { ExerciseImage } from './ExerciseImage';
 import { PulseCard } from './PulseCard';
 import { SetRow, type RestView, type SetValues } from './SetRow';
 
 const plural = (n: number) => (n % 10 === 1 && n % 100 !== 11 ? 'подход' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'подхода' : 'подходов');
 
-const Chevron = ({ dir }: { dir: 'up' | 'right' }) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-    <path d={dir === 'up' ? 'M6 15l6-6 6 6' : 'M9 6l6 6-6 6'} />
-  </svg>
-);
+const dots = (s: string) => s.replace(/ · /g, ' • ');
 
 /** Свёрнутое упражнение — строка списка, как «2 Разведения гантелей лёжа» на макете. */
 export function ExerciseRow({ n, pe, done, onOpen }: { n: number; pe: ProgramExercise; done: boolean; onOpen: () => void }) {
   const ex = EXERCISES[pe.exerciseId];
   return (
-    <button className="ex-row" onClick={onOpen}>
-      <span className={done ? 'ex-num small done' : 'ex-num small'}>{done ? '✓' : n}</span>
+    <button className={done ? 'ex-row done' : 'ex-row'} onClick={onOpen}>
+      <NumRing n={done ? '✓' : n} size={42} />
       <span className="ex-titles">
         <span className="ex-name">{ex.name}</span>
-        <span className="ex-muscles">{ex.muscles}</span>
+        <span className="ex-muscles">{dots(ex.muscles)}</span>
       </span>
-      <span className="round-btn">
-        <Chevron dir="right" />
+      <span className="glass-btn" style={{ width: 40, height: 40 }}>
+        <ChevronIcon dir="right" />
       </span>
     </button>
   );
@@ -59,16 +56,16 @@ export function ExerciseCard({ n, pe, week, target, sets, rest, onCollapse, onSa
 
   return (
     <section className="ex-card">
-      <div className="ex-head">
-        <span className="ex-num ring">{n}</span>
+      <button className="ex-head" onClick={onCollapse}>
+        <NumRing n={n} active size={48} />
         <span className="ex-titles">
           <span className="ex-name big">{ex.name}</span>
-          <span className="ex-muscles">{ex.muscles}</span>
+          <span className="ex-muscles">{dots(ex.muscles)}</span>
         </span>
-        <button className="round-btn accent" aria-label="Свернуть" onClick={onCollapse}>
-          <Chevron dir="up" />
-        </button>
-      </div>
+        <span className="glass-btn accent" style={{ width: 44, height: 44 }} aria-label="Свернуть">
+          <ChevronIcon dir="up" />
+        </span>
+      </button>
 
       {target.hint && <div className="ex-hint">{target.hint}</div>}
 
@@ -80,8 +77,9 @@ export function ExerciseCard({ n, pe, week, target, sets, rest, onCollapse, onSa
           {p.sets} {plural(p.sets)} · Отдых 2 мин
         </span>
       </div>
-      {(warmups.length > 0 || p.dropset) && (
+      {(warmups.length > 0 || p.dropset || ex.note) && (
         <div className="sets-note">
+          {ex.note && <>{ex.note}{warmups.length > 0 ? ' · ' : ''}</>}
           {warmups.length > 0 && <>Разминка: {warmups.join(' · ')}</>}
           {warmups.length > 0 && p.dropset && <br />}
           {p.dropset && <>В последнем подходе дроп: −25–30% веса и до отказа</>}

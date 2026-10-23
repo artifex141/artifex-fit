@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { WeightRule } from '../../program/types';
+import { CheckIcon, NumRing } from '../kit';
 import { formatClock } from './timer';
 
 export interface SetValues {
@@ -35,11 +36,6 @@ const num = (s: string) => {
 };
 const fmt = (n: number) => String(Math.round(n * 10) / 10);
 
-const Check = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M5 12.5l4.5 4.5L19 7.5" />
-  </svg>
-);
 
 function Field({ label, value, onChange, step, disabled, decimal }: { label: string; value: string; onChange: (v: string) => void; step: number; disabled: boolean; decimal?: boolean }) {
   const bump = (d: number) => {
@@ -69,14 +65,21 @@ function Field({ label, value, onChange, step, disabled, decimal }: { label: str
 }
 
 function RestRing({ left, duration }: { left: number; duration: number }) {
-  const R = 30;
+  const R = 31;
   const C = 2 * Math.PI * R;
   const frac = duration ? left / duration : 0;
   return (
     <div className="rest-ring">
-      <svg viewBox="0 0 72 72">
-        <circle cx="36" cy="36" r={R} className="rest-ring-bg" />
-        <circle cx="36" cy="36" r={R} className="rest-ring-fg" strokeDasharray={C} strokeDashoffset={C * (1 - frac)} transform="rotate(-90 36 36)" />
+      <svg viewBox="0 0 76 76">
+        <defs>
+          <linearGradient id="restg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#ffd84a" />
+            <stop offset="1" stopColor="#e0a800" />
+          </linearGradient>
+        </defs>
+        <circle cx="38" cy="38" r={R} className="rest-ring-track" />
+        <circle cx="38" cy="38" r={R} className="rest-ring-fg" stroke="url(#restg)" strokeDasharray={C} strokeDashoffset={C * (1 - frac)} transform="rotate(-90 38 38)" />
+        <circle cx="38" cy="38" r={R - 7} className="rest-ring-in" />
       </svg>
       <span>{formatClock(left)}</span>
     </div>
@@ -116,8 +119,8 @@ export function SetRow({ n, rule, step, withDrop, status, suggest, fact, rest, o
     return (
       <div className={rest ? 'srow done resting' : 'srow done'}>
         <button className="srow-main" aria-label={`Подход ${n}: изменить`} onClick={() => setEditing(true)}>
-          <span className="snum checked">
-            <Check />
+          <span className="snum-done">
+            <CheckIcon />
           </span>
           <span className="srow-text">
             <span className="srow-title">Подход {n}</span>
@@ -131,7 +134,7 @@ export function SetRow({ n, rule, step, withDrop, status, suggest, fact, rest, o
               <span className="rest-info-label">Отдых после {n} подхода</span>
               <span className="rest-info-total">{formatClock(rest.duration)}</span>
             </span>
-            <button className="round-btn pause" aria-label={rest.paused ? 'Продолжить отдых' : 'Пауза'} onClick={rest.onToggle}>
+            <button className="glass-btn accent pause" aria-label={rest.paused ? 'Продолжить отдых' : 'Пауза'} onClick={rest.onToggle}>
               {rest.paused ? (
                 <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor" /></svg>
               ) : (
@@ -147,7 +150,7 @@ export function SetRow({ n, rule, step, withDrop, status, suggest, fact, rest, o
   const off = status === 'future' && !editing;
   return (
     <div className={`srow ${editing ? 'active' : status}`}>
-      <span className={off ? 'snum' : 'snum ring'}>{n}</span>
+      <NumRing n={n} active={!off} size={36} />
       <span className="srow-title fixed">Подход {n}</span>
       <div className="sfields">
         <Field label={weightLabel} value={lb} onChange={setLb} step={step} disabled={off} decimal />
@@ -156,7 +159,7 @@ export function SetRow({ n, rule, step, withDrop, status, suggest, fact, rest, o
       </div>
       <div className="srow-actions">
         <button className={off ? 'check-btn off' : 'check-btn'} disabled={off || !valid} aria-label="Записать подход" onClick={save}>
-          <Check />
+          <CheckIcon />
         </button>
         {editing && (
           <button

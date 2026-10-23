@@ -6,7 +6,7 @@ const img2 = (id: string): ExerciseImage => ({ frames: 2, src0: `exercises/${id}
 
 const list: Exercise[] = [
   // День A
-  { id: 'incline-db-press', name: 'Жим гантелей на наклонной 20–30°', muscles: 'Верх груди · Передние дельты · Трицепс', equipment: 'dumbbell', image: img3('incline-db-press') },
+  { id: 'incline-db-press', name: 'Жим гантелей на наклонной', muscles: 'Грудные мышцы · Трицепс · Передние дельты', note: 'Скамья 20–30°', equipment: 'dumbbell', image: img3('incline-db-press') },
   { id: 'neutral-pullup', name: 'Подтягивания параллельным хватом', muscles: 'Широчайшие · Бицепс', equipment: 'other', image: img3('neutral-pullup') },
   { id: 'low-high-cable-fly', name: 'Сведения в кроссовере снизу вверх', muscles: 'Верх груди', equipment: 'other', image: img3('low-high-cable-fly') },
   { id: 'chest-supported-row', name: 'Тяга с упором грудью', muscles: 'Спина · Задние дельты', equipment: 'other', image: img3('chest-supported-row') },
