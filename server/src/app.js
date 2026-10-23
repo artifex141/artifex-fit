@@ -111,6 +111,18 @@ export function createApp({ store, clock, send, publicKey, origins, log = () => 
       if (origin && !origins.includes(origin)) return reply(res, 403, { error: 'origin' });
       if (req.method === 'OPTIONS') return reply(res, 204, undefined, origin);
       if (route === 'GET /api/vapid') return reply(res, 200, { publicKey }, origin);
+      if (route === 'GET /api/body/add') {
+        // Запасной путь для «Команд»: значения в адресе, без тела запроса.
+        const q = Object.fromEntries(url.searchParams);
+        if (!UUIDISH.test(q.deviceId ?? '')) return reply(res, 400, { error: 'Нет или неверный deviceId — скопируй ID в профиле Artifex' }, origin);
+        // «+» часового пояса без экранирования приходит пробелом: «…08:00:00 03:00» → «…08:00:00+03:00»
+        const date = q.date?.replace(/ (\d{2}:?\d{2})$/, '+$1');
+        const r = normalizeSample({ type: q.type, value: q.value, unit: q.unit, date }, clock.now());
+        log('body-get', q.deviceId.slice(0, 8), r.error ? `400 ${r.error}` : '200', url.search.slice(0, 200));
+        if (r.error) return reply(res, 400, { error: r.error }, origin);
+        store.addBody(q.deviceId, r.sample);
+        return reply(res, 200, { ok: true, saved: 1 }, origin);
+      }
       if (route === 'GET /api/body') {
         const id = url.searchParams.get('deviceId') ?? '';
         if (!UUIDISH.test(id)) return reply(res, 400, { error: 'deviceId' }, origin);

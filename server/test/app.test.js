@@ -165,3 +165,17 @@ test('значение вместе с единицей текстом: «80,2 �
   assert.deepEqual(data.weight.map((x) => x.value), [80, 80.2]);
   assert.deepEqual(data.bodyFat.map((x) => x.value), [15.2]);
 });
+
+test('замер простым GET со значениями в адресе (для «Команд»)', async () => {
+  const dev = '0b5c1f0e-1111-4222-8333-44445555aaaa';
+  // «+» в часовом поясе после неэкранированной подстановки превращается в пробел — сервер это чинит
+  const url = `${base}/api/body/add?deviceId=${dev}&type=Weight&value=176.4&unit=lbs&date=2026-10-20T08:00:00 03:00`;
+  const r = await fetch(url);
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { ok: true, saved: 1 });
+  const data = await (await fetch(`${base}/api/body?deviceId=${dev}`)).json();
+  assert.equal(data.weight[0].value, 80);
+  assert.equal(new Date(data.weight[0].date).toISOString(), '2026-10-20T05:00:00.000Z');
+  const bad = await fetch(`${base}/api/body/add?deviceId=${dev}&type=рост&value=1`);
+  assert.equal(bad.status, 400);
+});

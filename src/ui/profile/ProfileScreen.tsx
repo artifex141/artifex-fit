@@ -164,12 +164,22 @@ function ZeppLife() {
   const f = metric(data.bodyFat, Date.now());
   const day = (t: number) => new Date(t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
 
+  const [copied2, setCopied2] = useState(false);
+  const urlPrefix = `${API}/api/body/add?deviceId=${id}&type=weight&value=`;
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(id);
       setCopied(true);
     } catch {
       setCopied(false);
+    }
+  };
+  const copyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(urlPrefix);
+      setCopied2(true);
+    } catch {
+      setCopied2(false);
     }
   };
 
@@ -205,16 +215,19 @@ function ZeppLife() {
             Добавь действие <b>«Найти образцы данных Здоровья»</b> (Find Health Samples): Тип — <b>Вес</b>, <b>без фильтра по дате</b>, сортировка — <b>по дате начала, сначала новые</b>, ограничение — <b>30</b>.
           </li>
           <li>
-            Добавь <b>«Повторить с каждым»</b> для найденных образцов, внутри — <b>«Получить содержимое URL»</b>:
-            <br />URL: <code>{API}/api/body</code>
-            <br />Метод: <b>POST</b>, Тело запроса: <b>JSON</b>, поля (все — «Текст»):
+            Добавь <b>«Повторить с каждым»</b> для найденных образцов, внутри — <b>«Получить содержимое URL»</b> (Get Contents of URL). Метод — <b>GET</b>, тела запроса <b>нет</b>. В поле адреса вставь начало (кнопка ниже) и допиши переменные:
             <br />
-            <code>deviceId</code> = твой ID (кнопка выше), <code>type</code> = <code>weight</code>, <code>value</code> = «Объект повтора» → <b>Значение</b>, <code>unit</code> = «Объект повтора» → <b>Единица</b>, <code>date</code> = «Объект повтора» → <b>Дата начала</b> (в настройках переменной выбери формат <b>ISO 8601</b>).
+            <code>{urlPrefix}</code>
+            <br />
+            <button className="btn howto-btn" onClick={copyUrl}>
+              {copied2 ? 'Адрес скопирован' : 'Копировать начало адреса'}
+            </button>
+            <br />→ сразу после <code>value=</code> вставь «Объект повтора» → <b>Значение</b>, затем напиши <code>&amp;unit=</code> и вставь <b>Единица</b>, затем <code>&amp;date=</code> и «Отформатированная дата» (Start Date в формате <b>ISO 8601</b>).
           </li>
           <li>
-            Повтори шаги 3–4 для <b>Процент жира</b> (<code>bodyFat</code>), <b>Сухая масса тела</b> (<code>leanMass</code>) и <b>ИМТ</b> (<code>bmi</code>). Название типа можно писать и по-английски, как в «Здоровье»: «Body Fat», «Lean Body Mass», «BMI».
+            Для остальных показателей сделай то же, заменив в адресе <code>type=weight</code> на <code>type=bodyFat</code> (процент жира), <code>type=leanMass</code> (сухая масса) или <code>type=bmi</code>.
             <br />
-            Проверка: запусти команду вручную — ответ сервера <code>{'{"ok":true,"saved":…}'}</code> значит всё дошло; если там ошибка, в ней написано, что не так.
+            Проверка: запусти команду вручную — ответ <code>{'{"ok":true,"saved":1}'}</code> значит замер дошёл; если ошибка — в ней написано, что не так.
           </li>
           <li>
             «Команды» → <b>Автоматизация → «+» → Время суток</b> (например, 9:00, ежедневно) → <b>«Запускать сразу»</b> → выбери «Artifex: замеры». Один раз запусти команду вручную.
