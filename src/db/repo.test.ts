@@ -11,8 +11,10 @@ import {
   getOpenWorkout,
   getPendingCycleEnd,
   getPosition,
+  getProfile,
   importAll,
   saveCycleConfig,
+  saveProfile,
   saveSet,
   setPosition,
   startNextCycle,
@@ -124,4 +126,10 @@ test('битый файл не трогает данные', async () => {
   await expect(importAll(JSON.stringify({ version: 2, workouts: [], sets: [], settings: [] }))).rejects.toThrow();
   await expect(importAll(JSON.stringify({ version: 1, workouts: 'x', sets: [], settings: [] }))).rejects.toThrow();
   expect(await allSets()).toHaveLength(1);
+});
+
+test('профиль: по умолчанию «Атлет», сохраняется и читается', async () => {
+  expect((await getProfile()).name).toBe('Атлет');
+  await saveProfile({ name: 'Алексей', birthYear: 1998, heightCm: 179, goal: 'mass', goalWeightLb: 175 });
+  expect(await getProfile()).toEqual({ name: 'Алексей', birthYear: 1998, heightCm: 179, goal: 'mass', goalWeightLb: 175 });
 });

@@ -1,301 +1,332 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useEffect, useRef, useState } from 'react';
-import { exportAll, getCycleConfig, getOpenWorkout, getPendingCycleEnd, getPosition, importAll, saveCycleConfig, setPosition } from '../../db/repo';
-import { EXERCISES } from '../../program/exercises';
-import { DAYS } from '../../program/program';
-import { TRAINING_DAYS, dayInfo } from '../../program/schedule';
-import type { DayType } from '../../program/types';
+import { useEffect, useState } from 'react';
 import { cachedBody, inLb, loadBody, metric, type BodyData } from '../../body/body';
-import { push } from '../../push/push';
+import { db } from '../../db/db';
+import { getProfile, saveProfile } from '../../db/repo';
+import { achievements, ageFrom, DEFAULT_PROFILE, formatHeight, GOAL_LABEL, goalProgress, type ProfileInfo } from '../../profile/profile';
+import { ChevronIcon } from '../kit';
+import { CharacterView } from './CharacterView';
+import { SettingsScreen } from './SettingsScreen';
 import './profile.css';
+import './profile-main.css';
 
-const PICK_IDS = (['A', 'B', 'C'] as DayType[]).flatMap((t) =>
-  DAYS[t].exercises.filter((e) => e.weeks[0].weight.kind === 'pick').map((e) => ({ id: e.exerciseId, day: t })),
+const sign = (v: number) => (v > 0 ? `+${v}` : `${v}`);
+const dayLabel = (t: number) => new Date(t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }).replace(' г.', '').replace('.', '');
+
+const Icon = ({ d, fill }: { d: string; fill?: boolean }) => (
+  <svg viewBox="0 0 24 24" fill={fill ? 'currentColor' : 'none'} stroke={fill ? 'none' : 'currentColor'} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+    <path d={d} />
+  </svg>
 );
+const I = {
+  pencil: 'M4 20l4.5-1 10-10-3.5-3.5-10 10L4 20zM14 6l3.5 3.5',
+  bars: 'M6 19v-5M10 19v-9M14 19v-6M18 19V8',
+  arm: 'M5 15c2-1 4-1 5 1 1-3 3-5 6-5 2 0 3 1 3 3-2 0-3 1-3 3v2H8c-2 0-4-1-3-4zM9 9c0-2 1-4 3-4',
+  bone: 'M8.5 6.5a2 2 0 1 0-3 2.5l9 9a2 2 0 1 0 2.5-3 2 2 0 1 0-3-2.5l-9-9a2 2 0 0 0-2.5 3z',
+  dumbbell: 'M6 7v10M3 9.5v5M18 7v10M21 9.5v5M6 12h12',
+  heart: 'M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z',
+  run: 'M14 4.5a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2zM7 21l3.2-5.6 3 2.6V22M5 11.5l3.4-3.2 4.2.8 2 3 3.6 1M10.5 9l-1.8 6',
+  moon: 'M20 15A8 8 0 1 1 9 4a7 7 0 0 0 11 11z',
+  apple: 'M12 7c-1.5-1.5-6-2-7 2.5S7 20 9.5 20c1 0 1.5-.5 2.5-.5s1.5.5 2.5.5C17 20 20 14 19 9.5S13.5 5.5 12 7zM12 7c0-2 1-3.5 3-4',
+  target: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 12l7-7M16 5h3v3',
+};
 
-function Position() {
-  const pos = useLiveQuery(getPosition);
-  const open = useLiveQuery(async () => (await getOpenWorkout()) ?? null);
-  if (!pos || open === undefined) return null;
-  const cycles = Array.from({ length: pos.cycle + 1 }, (_, i) => i + 1);
+// Демо: шкалы состояния и метрики Apple Watch — пока нет источника данных (см. src/ui/demo.ts).
+const STATE: { icon: string; label: string; score: number }[] = [
+  { icon: I.dumbbell, label: 'Сила', score: 7 },
+  { icon: I.heart, label: 'Выносливость', score: 6 },
+  { icon: I.run, label: 'Подвижность', score: 6 },
+  { icon: I.moon, label: 'Восстановление', score: 7 },
+  { icon: I.apple, label: 'Питание', score: 6 },
+  { icon: I.bars, label: 'Общий прогресс', score: 6 },
+];
+
+function Gauge({ frac }: { frac: number }) {
+  const R = 44;
+  const len = 2 * Math.PI * R * 0.75; // дуга 270°
   return (
-    <section className="card stack">
-      <h2 className="card-title">Где я в программе</h2>
-      {open && <p className="hint">Сейчас идёт тренировка — сначала заверши её.</p>}
-      <div className="row">
-        <label className="grow">
-          <span className="field-label">Цикл</span>
-          <select className="field" disabled={!!open} value={pos.cycle} onChange={(e) => setPosition({ ...pos, cycle: Number(e.target.value) })}>
-            {cycles.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grow2">
-          <span className="field-label">Следующая тренировка</span>
-          <select className="field" disabled={!!open} value={pos.day} onChange={(e) => setPosition({ ...pos, day: Number(e.target.value) })}>
-            {TRAINING_DAYS.map((d) => {
-              const i = dayInfo(d);
-              return (
-                <option key={d} value={d}>
-                  День {d} · нед. {i.week} · «{i.type}»
-                </option>
-              );
-            })}
-          </select>
-        </label>
-      </div>
-    </section>
+    <svg viewBox="0 0 100 100" className="pf-gauge">
+      <defs>
+        <linearGradient id="pfg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#ffd84a" />
+          <stop offset="1" stopColor="#f0b400" />
+        </linearGradient>
+        <filter id="pfgf" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="2.2" />
+        </filter>
+      </defs>
+      <circle cx="50" cy="50" r={R} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="7" strokeDasharray={`${len} 999`} strokeLinecap="round" transform="rotate(135 50 50)" />
+      <circle cx="50" cy="50" r={R} fill="none" stroke="#f5c518" strokeOpacity="0.5" strokeWidth="7" strokeDasharray={`${len * frac} 999`} strokeLinecap="round" transform="rotate(135 50 50)" filter="url(#pfgf)" />
+      <circle cx="50" cy="50" r={R} fill="none" stroke="url(#pfg)" strokeWidth="7" strokeDasharray={`${len * frac} 999`} strokeLinecap="round" transform="rotate(135 50 50)" />
+    </svg>
   );
 }
 
-function StartWeights() {
-  const pos = useLiveQuery(getPosition);
-  const cfg = useLiveQuery(() => (pos ? getCycleConfig(pos.cycle) : undefined), [pos?.cycle]);
-  const [saved, setSaved] = useState<string | null>(null);
-  if (!pos || !cfg) return null;
-
-  const update = async (id: string, raw: string) => {
-    const v = parseFloat(raw.replace(',', '.'));
-    const startWeights = { ...cfg.startWeights };
-    if (Number.isFinite(v) && v > 0) startWeights[id] = v;
-    else delete startWeights[id];
-    await saveCycleConfig(pos.cycle, { ...cfg, startWeights });
-    setSaved(id);
+function EditSheet({ profile, onClose }: { profile: ProfileInfo; onClose: () => void }) {
+  const ft0 = profile.heightCm ? Math.floor(profile.heightCm / 2.54 / 12) : '';
+  const in0 = profile.heightCm ? Math.round((profile.heightCm / 2.54 - Number(ft0) * 12) * 10) / 10 : '';
+  const [f, setF] = useState({ name: profile.name, birthYear: profile.birthYear ?? '', ft: ft0, inch: in0, goal: profile.goal, goalWeightLb: profile.goalWeightLb ?? '' });
+  const num = (v: string | number) => {
+    const n = parseFloat(String(v).replace(',', '.'));
+    return Number.isFinite(n) ? n : null;
   };
-
+  const save = async () => {
+    const ft = num(f.ft);
+    const inch = num(f.inch) ?? 0;
+    await saveProfile({
+      name: f.name.trim() || DEFAULT_PROFILE.name,
+      birthYear: num(f.birthYear),
+      heightCm: ft !== null ? Math.round((ft * 12 + inch) * 2.54 * 10) / 10 : null,
+      goal: f.goal,
+      goalWeightLb: num(f.goalWeightLb),
+    });
+    onClose();
+  };
   return (
-    <section className="card stack">
-      <h2 className="card-title">Стартовые веса (Н1)</h2>
-      <p className="muted small">
-        Вес, подобранный на неделе 1 цикла {pos.cycle}. Нужен, если неделя 1 не записана в приложении. Если на неделе 2 ты уже сделал упражнение —
-        возьмётся вес оттуда.
-      </p>
-      {PICK_IDS.map(({ id, day }) => (
-        <label key={id} className="weight-row">
-          <span className="weight-name">
-            <span className="day-badge">{day}</span>
-            {EXERCISES[id].name}
-          </span>
-          <input
-            className="field weight-input"
-            inputMode="decimal"
-            placeholder="lb"
-            defaultValue={cfg.startWeights[id] ?? ''}
-            onBlur={(e) => update(id, e.target.value)}
-          />
-          {saved === id && <span className="accent small">✓</span>}
+    <div className="dialog-backdrop" onClick={onClose}>
+      <div className="dialog card stack" onClick={(e) => e.stopPropagation()}>
+        <h2 className="card-title">Профиль</h2>
+        <label className="pf-field">
+          <span>Имя</span>
+          <input className="field" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
         </label>
-      ))}
-    </section>
-  );
-}
-
-function PushSettings() {
-  const [on, setOn] = useState(push.isOn());
-  const [msg, setMsg] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const standalone =
-    (navigator as Navigator & { standalone?: boolean }).standalone === true || window.matchMedia?.('(display-mode: standalone)').matches;
-
-  const enable = async () => {
-    setBusy(true);
-    const r = await push.enable();
-    setBusy(false);
-    setOn(r === 'on');
-    setMsg(
-      {
-        on: 'Готово: уведомление придёт, когда закончится отдых — даже на заблокированном экране.',
-        denied: 'Уведомления запрещены. Разреши их: Настройки → Уведомления → Artifex.',
-        unsupported: 'Это работает только в приложении, открытом с экрана «Домой» (iOS 16.4+).',
-        error: 'Сервер уведомлений недоступен. Попробуй позже.',
-      }[r],
-    );
-  };
-
-  const testPush = async () => {
-    await push.scheduleRest(Date.now() + 5000, 'Отдых окончен', 'Проверка: так будет выглядеть сигнал');
-    setMsg('Через 5 секунд придёт уведомление. Можно заблокировать экран.');
-  };
-
-  return (
-    <section className="card stack">
-      <h2 className="card-title">Уведомления об отдыхе</h2>
-      <p className="muted small">Сигнал о конце отдыха со звуком — даже когда экран заблокирован. Музыка не прерывается.</p>
-      {!standalone && <p className="hint small">Сначала установи приложение: Safari → «Поделиться» → «На экран „Домой“», и открой его оттуда.</p>}
-      {on ? (
         <div className="row">
-          <button className="btn grow" onClick={testPush}>
-            Проверить
-          </button>
-          <button
-            className="btn grow"
-            onClick={() => {
-              push.disable();
-              setOn(false);
-              setMsg('Уведомления выключены.');
-            }}
-          >
-            Выключить
-          </button>
+          <label className="pf-field grow">
+            <span>Год рождения</span>
+            <input className="field" inputMode="numeric" value={f.birthYear} onChange={(e) => setF({ ...f, birthYear: e.target.value })} />
+          </label>
+          <label className="pf-field grow">
+            <span>Рост, ft</span>
+            <input className="field" inputMode="numeric" value={f.ft} onChange={(e) => setF({ ...f, ft: e.target.value })} />
+          </label>
+          <label className="pf-field grow">
+            <span>in</span>
+            <input className="field" inputMode="decimal" value={f.inch} onChange={(e) => setF({ ...f, inch: e.target.value })} />
+          </label>
         </div>
-      ) : (
-        <button className="btn primary block" disabled={busy} onClick={enable}>
-          {busy ? 'Подключаю…' : 'Включить уведомления'}
-        </button>
-      )}
-      {msg && <p className="small">{msg}</p>}
-    </section>
-  );
-}
-
-const API = import.meta.env.VITE_PUSH_API ?? 'https://fit.artifex.mobi';
-
-function ZeppLife() {
-  const [data, setData] = useState<BodyData>(cachedBody);
-  const [copied, setCopied] = useState(false);
-  const id = push.deviceId();
-  useEffect(() => {
-    void loadBody().then(setData);
-  }, []);
-  const w = inLb(metric(data.weight, Date.now()));
-  const f = metric(data.bodyFat, Date.now());
-  const day = (t: number) => new Date(t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(id);
-      setCopied(true);
-    } catch {
-      setCopied(false);
-    }
-  };
-
-
-  return (
-    <section className="card stack">
-      <h2 className="card-title">Вес и состав тела из Zepp Life</h2>
-      <p className="small">
-        {w ? (
-          <>
-            Последний замер: <b>{w.value} lb</b>
-            {f ? `, жир ${f.value}%` : ''} — {day(w.lastDate)}
-          </>
-        ) : (
-          <span className="muted">Данных пока нет — на «Прогрессе» показаны демо-значения.</span>
-        )}
-      </p>
-      <div className="row">
-        <code className="device-id">{id}</code>
-        <button className="btn" onClick={copy}>
-          {copied ? 'Скопировано' : 'Копировать ID'}
+        <div className="row">
+          <label className="pf-field grow2">
+            <span>Цель</span>
+            <select className="field" value={f.goal} onChange={(e) => setF({ ...f, goal: e.target.value as ProfileInfo['goal'] })}>
+              {Object.entries(GOAL_LABEL).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="pf-field grow">
+            <span>Целевой вес, lb</span>
+            <input className="field" inputMode="decimal" value={f.goalWeightLb} onChange={(e) => setF({ ...f, goalWeightLb: e.target.value })} />
+          </label>
+        </div>
+        <button className="btn primary block" onClick={save}>
+          Сохранить
         </button>
       </div>
-      <details className="howto">
-        <summary>Как настроить (один раз, ~5 минут)</summary>
-        <ol>
-          <li>
-            Разреши Zepp Life писать в «Здоровье» — это включается в самом приложении <b>«Здоровье»</b>, а не в Zepp Life: <b>«Здоровье» → аватар справа вверху → «Приложения» → Zepp Life → «Включить все»</b> (как минимум «Вес» и «Процент жира»). Если Zepp Life в этом списке нет — открой в Zepp Life вкладку <b>«Профиль»</b> и найди пункт про Apple «Здоровье» / «Health»; при первом включении iPhone покажет запрос доступа. Потом встань на весы и открой Zepp Life — замер появится в «Здоровье».
-          </li>
-          <li>
-            Открой <b>«Команды» → «+»</b>, назови команду <b>Artifex: замеры</b>.
-          </li>
-          <li>
-            Добавь действие <b>«Найти образцы данных Здоровья»</b> (Find Health Samples): Тип — <b>Вес</b>, <b>без фильтра по дате</b>, сортировка — <b>по дате начала, сначала новые</b>, ограничение — <b>30</b>.
-          </li>
-          <li>
-            Добавь <b>«Повторить с каждым»</b> для найденных образцов, внутри — <b>«Получить содержимое URL»</b> (Get Contents of URL):
-            <br />URL: <code>{API}/api/body</code>, метод — <b>GET</b>, тела запроса нет.
-            <br />Раскрой <b>Headers</b> и добавь заголовки: <code>Device</code> = твой ID (кнопка выше), <code>Value</code> = «Объект повтора» (Repeat Item), <code>Unit</code> = <code>lbs</code>, <code>Date</code> = «Отформатированная дата» (Start Date в формате <b>ISO 8601</b>).
-          </li>
-          <li>
-            Для остальных показателей — такая же команда с другим типом в «Найти образцы» и ещё одним заголовком <code>Type</code>: <code>bodyFat</code> (процент жира, Unit = <code>%</code>), <code>leanMass</code> (сухая масса, Unit = <code>lbs</code>) или <code>bmi</code>. Без <code>Type</code> замер считается весом.
-            <br />
-            Проверка: запусти команду вручную — ответ <code>{'{"ok":true,"saved":1}'}</code> на каждый замер значит всё дошло; если ошибка — в ней написано, что не так.
-          </li>
-          <li>
-            «Команды» → <b>Автоматизация → «+» → Время суток</b> (например, 9:00, ежедневно) → <b>«Запускать сразу»</b> → выбери «Artifex: замеры». Один раз запусти команду вручную.
-          </li>
-        </ol>
-        <p className="muted small">Мышечная масса, вода и костная масса в «Здоровье» не передаются — эти блоки пока демо.</p>
-      </details>
-    </section>
-  );
-}
-
-function Backup() {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [msg, setMsg] = useState<string | null>(null);
-
-  const doExport = async () => {
-    const blob = new Blob([await exportAll()], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `artifex-fit-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    setMsg('Файл сохранён. На iPhone выбери «Сохранить в Файлы» и положи в iCloud.');
-  };
-
-  const doImport = async (file: File) => {
-    if (!confirm('Заменить все данные приложения данными из файла?')) return;
-    try {
-      await importAll(await file.text());
-      setMsg('Данные восстановлены.');
-    } catch (e) {
-      setMsg(`Не получилось: ${(e as Error).message}`);
-    }
-  };
-
-  return (
-    <section className="card stack">
-      <h2 className="card-title">Резервная копия</h2>
-      <p className="muted small">Данные хранятся только на этом телефоне. Делай копию раз в неделю.</p>
-      <div className="row">
-        <button className="btn grow" onClick={doExport}>
-          Экспорт
-        </button>
-        <button className="btn grow" onClick={() => fileRef.current?.click()}>
-          Импорт
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/json,.json"
-          hidden
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void doImport(f);
-            e.target.value = '';
-          }}
-        />
-      </div>
-      {msg && <p className="small">{msg}</p>}
-    </section>
+    </div>
   );
 }
 
 export function ProfileScreen({ onNewCycle }: { onNewCycle: (cycle: number) => void }) {
-  const pos = useLiveQuery(getPosition);
-  const open = useLiveQuery(async () => (await getOpenWorkout()) ?? null);
-  const pendingEnd = useLiveQuery(getPendingCycleEnd);
-  const endCycle = pendingEnd ?? pos?.cycle;
+  const profile = useLiveQuery(getProfile) ?? DEFAULT_PROFILE;
+  const workouts = useLiveQuery(() => db.workouts.toArray(), [], []);
+  const [body, setBody] = useState<BodyData>(cachedBody);
+  const [settings, setSettings] = useState(false);
+  const [edit, setEdit] = useState(false);
+  useEffect(() => {
+    void loadBody().then(setBody);
+  }, []);
+
+  if (settings) return <SettingsScreen onNewCycle={onNewCycle} onClose={() => setSettings(false)} />;
+
+  const now = Date.now();
+  const weight = inLb(metric(body.weight, now));
+  const fat = metric(body.bodyFat, now);
+  const lean = inLb(metric(body.leanMass, now));
+  const info = [profile.birthYear ? `${ageFrom(profile.birthYear, now)} лет` : null, profile.heightCm ? formatHeight(profile.heightCm) : null, weight ? `${weight.value} lb` : null].filter(Boolean);
+  const goal = profile.goalWeightLb ? goalProgress(weight?.value ?? null, profile.goalWeightLb) : null;
+  const ach = achievements(workouts, body, now);
+
+  const bodyRows = [
+    { icon: I.bars, value: fat ? `${fat.value}%` : '--%', label: 'Жир', delta: fat?.delta != null ? `${sign(fat.delta)}%` : null, up: (fat?.delta ?? 0) > 0 },
+    { icon: I.arm, value: lean ? `${lean.value} lb` : '-- lb', label: 'Сухая масса', delta: lean?.delta != null ? `${sign(lean.delta)} lb` : null, up: (lean?.delta ?? 0) > 0 },
+    { icon: I.bone, value: '6.8 lb', label: 'Костная масса', delta: '+0.2 lb', up: true }, // демо: в «Здоровье» нет
+  ];
+
   return (
-    <div className="screen stack">
-      <h1 className="screen-title">Профиль</h1>
-      <Position />
-      <PushSettings />
-      <ZeppLife />
-      <StartWeights />
-      <Backup />
-      {endCycle !== undefined && (
-        <button className="btn block" disabled={!!open} onClick={() => onNewCycle(endCycle)}>
-          Завершить цикл {endCycle} и начать новый
+    <div className="pf">
+      <div className="pf-stage">
+        <CharacterView />
+
+        <h1 className="pf-title">Профиль</h1>
+        <button className="pf-edit" onClick={() => setEdit(true)}>
+          <span className="pf-edit-icon">
+            <Icon d={I.pencil} />
+          </span>
+          Редактировать
         </button>
-      )}
-      <p className="muted small center">Artifex Fit · версия {__APP_VERSION__}</p>
+        <button className="glass-btn pf-menu" aria-label="Настройки" onClick={() => setSettings(true)}>
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="5" cy="12" r="2" />
+            <circle cx="12" cy="12" r="2" />
+            <circle cx="19" cy="12" r="2" />
+          </svg>
+        </button>
+
+        <section className="pf-card pf-name" onClick={() => setEdit(true)}>
+          <div className="pf-name-title">{profile.name}</div>
+          <div className="pf-name-info">{info.length ? info.join('  •  ') : 'Заполни профиль'}</div>
+        </section>
+
+        <section className="pf-card pf-goal" onClick={() => setEdit(true)}>
+          <div className="pf-goal-head">
+            <span className="pf-goal-icon">
+              <Icon d={I.target} />
+            </span>
+            <span>
+              <b>Цель</b>
+              <small>{GOAL_LABEL[profile.goal]}</small>
+            </span>
+          </div>
+          <div className="pf-bar">
+            <span style={{ width: `${(goal?.fraction ?? 0) * 100}%` }} />
+          </div>
+          <div className="pf-goal-foot">
+            {goal ? (
+              <span>
+                <b>{goal.current ?? '--'}</b> / {goal.target} lb
+              </span>
+            ) : (
+              <span className="muted">Задай целевой вес</span>
+            )}
+            <ChevronIcon dir="right" />
+          </div>
+        </section>
+
+        <section className="pf-card pf-body">
+          {bodyRows.map((r) => (
+            <div key={r.label} className="pf-body-row">
+              <span className="pf-round">
+                <Icon d={r.icon} />
+              </span>
+              <span className="pf-body-text">
+                <b>{r.value}</b>
+                <span>{r.label}</span>
+                {r.delta && (
+                  <em>
+                    {r.up ? '↑' : '↓'} {r.delta}
+                  </em>
+                )}
+              </span>
+              <ChevronIcon dir="right" />
+            </div>
+          ))}
+        </section>
+
+        <section className="pf-card pf-state">
+          <div className="pf-card-head">
+            <b>Текущее состояние</b>
+            <span className="glass-btn pf-dots">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="6" cy="12" r="1.7" />
+                <circle cx="12" cy="12" r="1.7" />
+                <circle cx="18" cy="12" r="1.7" />
+              </svg>
+            </span>
+          </div>
+          {STATE.map((s) => (
+            <div key={s.label} className="pf-state-row">
+              <span className="pf-round">
+                <Icon d={s.icon} />
+              </span>
+              <span className="pf-state-main">
+                <span className="pf-state-label">
+                  <span>{s.label}</span>
+                  <span className="muted">{s.score}/10</span>
+                </span>
+                <span className="pf-bar thin">
+                  <span style={{ width: `${s.score * 10}%` }} />
+                </span>
+              </span>
+            </div>
+          ))}
+        </section>
+
+        <section className="pf-card pf-ach">
+          <div className="pf-card-head">
+            <b>
+              <svg viewBox="0 0 24 24" className="pf-ach-icon">
+                <path d="M7 2h10v6l-5 3-5-3V2zM12 11a6 6 0 1 1 0 12 6 6 0 0 1 0-12z" fill="#f5c518" />
+                <path d="M12 14.2l1.1 2.2 2.4.3-1.8 1.7.5 2.4-2.2-1.2-2.2 1.2.5-2.4-1.8-1.7 2.4-.3z" fill="#2b2203" />
+              </svg>
+              Достижения
+            </b>
+            <span className="pf-ach-count">
+              <svg viewBox="0 0 24 24">
+                <path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5l8-3z" fill="#f5c518" />
+              </svg>
+              {ach.length}
+            </span>
+          </div>
+          {ach.length === 0 && <div className="pf-ach-empty">Первая награда — после первой тренировки</div>}
+          {ach.slice(0, 2).map((a) => (
+            <div key={a.id} className="pf-ach-row">
+              <svg viewBox="0 0 40 46" className={`pf-badge ${a.tier}`}>
+                <path d="M20 2l16 9v18l-16 9-16-9V11z" />
+                <path d="M12 38l8 6 8-6" className="ribbon" />
+                <path d="M20 13l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z" className="star" />
+              </svg>
+              <span>
+                <b>{a.title}</b>
+                <small>{dayLabel(a.date)}</small>
+              </span>
+              <ChevronIcon dir="right" />
+            </div>
+          ))}
+        </section>
+      </div>
+
+      <section className="pf-card pf-health">
+        <div className="pf-health-head">
+          <b>Метрики здоровья</b>
+          <span className="pf-watch">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+              <rect x="6.5" y="6" width="11" height="12" rx="3" />
+              <path d="M9 6l.6-3h4.8l.6 3M9 18l.6 3h4.8l.6-3" />
+            </svg>
+            Apple Watch
+          </span>
+          <span className="pf-today">
+            Сегодня <ChevronIcon dir="down" />
+          </span>
+        </div>
+        <div className="pf-health-grid">
+          {[
+            { icon: <svg viewBox="0 0 24 24"><path d={I.heart} fill="#f5c518" /></svg>, title: 'Пульс', value: <>62</>, unit: 'bpm', status: 'В норме', frac: 0.62 },
+            { icon: <svg viewBox="0 0 24 24"><path d={I.moon} fill="#b9c4ff" /></svg>, title: 'Сон', value: <>7<small>ч</small> 48<small>м</small></>, unit: '', status: 'Хорошо', frac: 0.78 },
+            { icon: <svg viewBox="0 0 24 24" fill="none" stroke="#f5c518" strokeWidth="2.2" strokeLinecap="round"><path d="M20 12a8 8 0 0 1-14 5.3M4 12a8 8 0 0 1 14-5.3M18 3v4h-4M6 21v-4h4" /></svg>, title: 'Восстановление', value: <>82<small>%</small></>, unit: '', status: 'Высокое', frac: 0.82 },
+          ].map((m) => (
+            <div key={m.title} className="pf-metric">
+              <div className="pf-metric-head">
+                {m.icon}
+                <span>{m.title}</span>
+                <span className="pf-info">i</span>
+              </div>
+              <div className="pf-metric-ring">
+                <Gauge frac={m.frac} />
+                <div className="pf-metric-val">
+                  <b className={m.title === 'Сон' ? 'long' : undefined}>{m.value}</b>
+                  {m.unit && <span>{m.unit}</span>}
+                </div>
+                <span className="pf-metric-status">{m.status}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {edit && <EditSheet profile={profile} onClose={() => setEdit(false)} />}
     </div>
   );
 }

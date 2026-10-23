@@ -1,5 +1,6 @@
 import { nextCycleConfig, type CycleMode } from '../program/cycle';
 import { nextTrainingDay, type Position } from '../program/schedule';
+import { DEFAULT_PROFILE, type ProfileInfo } from '../profile/profile';
 import type { CycleConfig } from '../program/weights';
 import { db, type SetRow, type SettingRow, type WorkoutRow } from './db';
 
@@ -19,6 +20,14 @@ export async function getPosition(): Promise<Position> {
 
 export async function setPosition(p: Position): Promise<void> {
   await db.settings.put({ key: 'position', value: p });
+}
+
+export async function getProfile(): Promise<ProfileInfo> {
+  return { ...DEFAULT_PROFILE, ...(await getSetting<Partial<ProfileInfo>>('profile', {})) };
+}
+
+export async function saveProfile(p: ProfileInfo): Promise<void> {
+  await db.settings.put({ key: 'profile', value: p });
 }
 
 export async function getCycleConfig(cycle: number): Promise<CycleConfig> {
