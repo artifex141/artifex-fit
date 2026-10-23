@@ -98,6 +98,25 @@ function RestRing({ left, duration }: { left: number; duration: number }) {
   );
 }
 
+/** Кольцо отдыха, «+30 с» и пауза — в строке подхода и в строке «Отдых» следующего упражнения. */
+export function RestControls({ rest }: { rest: RestView }) {
+  return (
+    <>
+      <RestRing left={rest.left} duration={rest.duration} />
+      <button className="glass-btn add-btn" aria-label="Добавить 30 секунд" onClick={() => rest.onAdd(30)}>
+        +30<small>с</small>
+      </button>
+      <button className="glass-btn accent pause" aria-label={rest.paused ? 'Продолжить отдых' : 'Пауза'} onClick={rest.onToggle}>
+        {rest.paused ? (
+          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor" /></svg>
+        ) : (
+          <svg viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor" /></svg>
+        )}
+      </button>
+    </>
+  );
+}
+
 export function SetRow({ n, rule, step, withDrop, status, suggest, fact, rest, onSave, onUndo }: SetRowProps) {
   const init = fact ?? suggest;
   const [lb, setLb] = useState(init.lb === null ? '' : fmt(init.lb));
@@ -139,21 +158,7 @@ export function SetRow({ n, rule, step, withDrop, status, suggest, fact, rest, o
             <span className="srow-sub">{detail}</span>
           </span>
         </button>
-        {rest && (
-          <>
-            <RestRing left={rest.left} duration={rest.duration} />
-            <button className="glass-btn add-btn" aria-label="Добавить 30 секунд" onClick={() => rest.onAdd(30)}>
-              +30<small>с</small>
-            </button>
-            <button className="glass-btn accent pause" aria-label={rest.paused ? 'Продолжить отдых' : 'Пауза'} onClick={rest.onToggle}>
-              {rest.paused ? (
-                <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor" /></svg>
-              ) : (
-                <svg viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor" /></svg>
-              )}
-            </button>
-          </>
-        )}
+        {rest && <RestControls rest={rest} />}
       </div>
     );
   }

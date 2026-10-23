@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { db } from '../../db/db';
 import {
   deleteSet,
@@ -15,6 +15,7 @@ import {
 } from '../../db/repo';
 import { EXERCISES } from '../../program/exercises';
 import { DAYS } from '../../program/program';
+import { afterSet } from '../../program/flow';
 import { dayInfo } from '../../program/schedule';
 import { summary as statsSummary } from '../../program/stats';
 import type { DayType } from '../../program/types';
@@ -74,6 +75,21 @@ export function WorkoutScreen({ onCycleEnd }: { onCycleEnd?: (cycle: number) => 
     return Object.fromEntries(DAYS[info.type].exercises.map((pe) => [pe.exerciseId, targetFor(pe.exerciseId, info.week, at.cycle, log, cfg)]));
   }, [allSets, cfg, at?.cycle, at?.day]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // При открытии — сразу к текущему упражнению; при смене упражнения — плавная прокрутка к нему.
+  const ready = !!(at && info && open !== undefined && pendingEnd !== undefined && cfg);
+  const firstScroll = useRef(true);
+  useEffect(() => {
+    if (!ready || summary) return;
+    const el = document.querySelector<HTMLElement>('.ex-card');
+    if (!el) return;
+    if (firstScroll.current) {
+      firstScroll.current = false;
+      if (Number(el.dataset.index) > 0) el.scrollIntoView({ block: 'start' });
+      return;
+    }
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [ready, openId, summary]);
+
   if (!at || !info || open === undefined || pendingEnd === undefined || !cfg) return <div className="screen" />;
 
   const { week, type, rir } = info;
@@ -99,9 +115,15 @@ export function WorkoutScreen({ onCycleEnd }: { onCycleEnd?: (cycle: number) => 
           ? `Дальше: ${EXERCISES[nextEx.exerciseId].name}`
           : 'Последнее упражнение сделано';
     rest.start(`${exerciseId}:${index}`, REST_WORK, label);
-    setOpenId(exerciseId);
+    const isNew = !current.some((s) => s.exerciseId === exerciseId && s.index === index);
+    const doneBefore: Record<string, number> = {};
+    for (const s of current) if (!(s.exerciseId === exerciseId && s.index === index)) doneBefore[s.exerciseId] = (doneBefore[s.exerciseId] ?? 0) + 1;
     const workoutId = open?.id ?? (await startWorkout(at));
     await saveSet({ workoutId, cycle: at.cycle, day: at.day, exerciseId, kind: 'work', index, ...v });
+    if (!isNew) return;
+    const next = afterSet(day.exercises, week, doneBefore, exerciseId, index);
+    if (next.kind === 'open') setOpenId(next.exerciseId);
+    if (next.kind === 'finish') setSheet('finish');
   };
 
   const undo = async (exerciseId: string, index: number) => {
@@ -194,6 +216,12 @@ export function WorkoutScreen({ onCycleEnd }: { onCycleEnd?: (cycle: number) => 
 
   const expanded = day.exercises[expandedIdx];
   const restIdx = rest.state?.setKey.startsWith(`${expanded.exerciseId}:`) ? Number(rest.state.setKey.split(':')[1]) : null;
+  const restView = rest.state
+    ? { left: rest.left, duration: rest.state.duration, paused: rest.state.pausedLeft !== undefined, onToggle: rest.toggle, onAdd: rest.add }
+    : null;
+  const [restEx, restSet] = rest.state ? rest.state.setKey.split(':') : ['', ''];
+  const carriedRest =
+    restView && restIdx === null && EXERCISES[restEx] ? { title: `после: ${EXERCISES[restEx].name}, подход ${Number(restSet) + 1}`, view: restView } : null;
 
   return (
     <div className="screen workout">
@@ -233,11 +261,9 @@ export function WorkoutScreen({ onCycleEnd }: { onCycleEnd?: (cycle: number) => 
         week={week}
         target={targets[expanded.exerciseId]}
         sets={current.filter((s) => s.exerciseId === expanded.exerciseId)}
-        rest={
-          restIdx !== null && rest.state
-            ? { setIndex: restIdx, view: { left: rest.left, duration: rest.state.duration, paused: rest.state.pausedLeft !== undefined, onToggle: rest.toggle, onAdd: rest.add } }
-            : null
-        }
+        rest={restIdx !== null && restView ? { setIndex: restIdx, view: restView } : null}
+        carriedRest={carriedRest}
+        index={expandedIdx}
         onCollapse={() => {
           const next = day.exercises.find((e, i) => i > expandedIdx && !isDone(e)) ?? day.exercises.find((e) => !isDone(e) && e !== expanded);
           setOpenId(next ? next.exerciseId : expanded.exerciseId);
@@ -249,9 +275,9 @@ export function WorkoutScreen({ onCycleEnd }: { onCycleEnd?: (cycle: number) => 
 
       {sheet === 'finish' && (
         <SheetView onClose={() => setSheet(null)}>
-          <h2 className="card-title">Завершить тренировку?</h2>
+          <h2 className="card-title">{workDone >= workTotal ? 'Все подходы сделаны 💪' : 'Завершить тренировку?'}</h2>
           <p className="muted">
-            Сделано {workDone} из {workTotal} подходов.
+            {workDone >= workTotal ? 'Завершить тренировку и сохранить результат?' : `Сделано ${workDone} из ${workTotal} подходов.`}
           </p>
           <button className="btn primary block" onClick={finish}>
             Завершить

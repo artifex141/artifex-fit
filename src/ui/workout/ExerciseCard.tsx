@@ -6,7 +6,8 @@ import type { SetRow as SetRecord } from '../../db/repo';
 import { ChevronIcon, NumRing } from '../kit';
 import { ExerciseImage } from './ExerciseImage';
 import { PulseCard } from './PulseCard';
-import { SetRow, type RestView, type SetValues } from './SetRow';
+import { CheckIcon } from '../kit';
+import { RestControls, SetRow, type RestView, type SetValues } from './SetRow';
 
 const plural = (n: number) => (n % 10 === 1 && n % 100 !== 11 ? 'подход' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'подхода' : 'подходов');
 
@@ -36,13 +37,16 @@ interface CardProps {
   target: Target;
   sets: SetRecord[]; // рабочие подходы этого упражнения в текущей тренировке
   rest: { setIndex: number; view: RestView } | null;
+  /** Отдых после последнего подхода предыдущего упражнения — показываем над подходами этого. */
+  carriedRest?: { title: string; view: RestView } | null;
+  index: number;
   onCollapse: () => void;
   onSave: (index: number, v: SetValues) => void;
   onUndo: (index: number) => void;
 }
 
 /** Раскрытое упражнение: заголовок, 3 кадра, подходы, пульс. */
-export function ExerciseCard({ n, pe, week, target, sets, rest, onCollapse, onSave, onUndo }: CardProps) {
+export function ExerciseCard({ n, pe, week, target, sets, rest, carriedRest, index, onCollapse, onSave, onUndo }: CardProps) {
   const ex = EXERCISES[pe.exerciseId];
   const p = pe.weeks[week - 1];
   const warmups = warmupFor(pe, week);
@@ -55,7 +59,7 @@ export function ExerciseCard({ n, pe, week, target, sets, rest, onCollapse, onSa
   };
 
   return (
-    <section className="ex-card">
+    <section className="ex-card" data-index={index}>
       <button className="ex-head" onClick={onCollapse}>
         <NumRing n={n} active size={48} />
         <span className="ex-titles">
@@ -87,6 +91,20 @@ export function ExerciseCard({ n, pe, week, target, sets, rest, onCollapse, onSa
       )}
 
       <div className="sets">
+        {carriedRest && (
+          <div className="srow done resting carried">
+            <span className="srow-main">
+              <span className="snum-done">
+                <CheckIcon />
+              </span>
+              <span className="srow-text">
+                <span className="srow-title">Отдых</span>
+                <span className="srow-sub">{carriedRest.title}</span>
+              </span>
+            </span>
+            <RestControls rest={carriedRest.view} />
+          </div>
+        )}
         {Array.from({ length: p.sets }, (_, i) => {
           const fact = sets.find((s) => s.index === i);
           return (
