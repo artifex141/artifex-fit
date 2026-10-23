@@ -102,6 +102,10 @@ export function createApp({ store, clock, send, publicKey, origins, log = () => 
     const origin = req.headers.origin;
     const url = new URL(req.url, 'http://x');
     const route = `${req.method} ${url.pathname}`;
+    // Журнал всех запросов (кроме проверок здоровья): видно, что реально присылают «Команды».
+    if (url.pathname !== '/api/health') {
+      res.on('finish', () => log('req', route, res.statusCode, String(req.headers['user-agent'] ?? '').slice(0, 40), req.headers['content-type'] ?? ''));
+    }
     try {
       if (route === 'GET /api/health') return reply(res, 200, { ok: true }, origin);
       if (origin && !origins.includes(origin)) return reply(res, 403, { error: 'origin' });
