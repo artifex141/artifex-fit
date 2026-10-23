@@ -3,6 +3,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 COPY src ./src
+RUN mkdir -p /data && chown node:node /data
 USER node
 ENV NODE_ENV=production PORT=8097 DATA_FILE=/data/push.json
 EXPOSE 8097
