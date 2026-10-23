@@ -33,5 +33,5 @@ export default defineConfig({
       },
     }),
   ],
-  test: { environment: 'node' },
+  test: { environment: 'node', exclude: ['server/**', 'node_modules/**', 'dist/**'] },
 });

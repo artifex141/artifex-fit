@@ -1,0 +1,15 @@
+{
+  "name": "artifex-fit-push",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Push-уведомления о конце отдыха для Artifex Fit",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "web-push": "^3.6.7"
+  }
+}
