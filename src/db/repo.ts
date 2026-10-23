@@ -1,3 +1,4 @@
+import { nextCycleConfig, type CycleMode } from '../program/cycle';
 import { nextTrainingDay, type Position } from '../program/schedule';
 import type { CycleConfig } from '../program/weights';
 import { db, type SetRow, type SettingRow, type WorkoutRow } from './db';
@@ -56,6 +57,14 @@ export async function finishWorkout(id: number): Promise<Position> {
     await setPosition(next);
   });
   return next;
+}
+
+/** Закрывает цикл: считает настройки следующего по выбранному режиму и ставит позицию на день 1. */
+export async function startNextCycle(prevCycle: number, mode: CycleMode): Promise<void> {
+  const prev = await getCycleConfig(prevCycle);
+  const log = (await db.sets.toArray()).filter((s) => s.cycle === prevCycle);
+  await saveCycleConfig(prevCycle + 1, nextCycleConfig(prev, prevCycle, log, mode));
+  await setPosition({ cycle: prevCycle + 1, day: 1 });
 }
 
 export async function allSets(): Promise<SetRow[]> {

@@ -1,0 +1,23 @@
+.small { font-size: 13px; }
+.center { text-align: center; }
+.grow { flex: 1; min-width: 0; }
+.grow2 { flex: 2; min-width: 0; }
+.field-label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+
+.weight-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); }
+.weight-name { flex: 1; min-width: 0; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.day-badge {
+  flex: none; width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center;
+  background: var(--card-2); color: var(--accent); font-size: 12px; font-weight: 700;
+}
+.weight-row .weight-input { width: 76px; flex: none; text-align: center; }
+
+.dialog-backdrop {
+  position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, 0.6);
+  display: flex; align-items: flex-end; justify-content: center; padding: 16px;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 16px);
+}
+.dialog { width: 100%; max-width: 520px; }
+.option { min-height: 64px; text-align: left; justify-content: flex-start; }
+.option span { display: flex; flex-direction: column; gap: 2px; }
+.option small { font-weight: 400; font-size: 13px; opacity: 0.8; }

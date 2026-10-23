@@ -13,6 +13,7 @@ import {
   saveCycleConfig,
   saveSet,
   setPosition,
+  startNextCycle,
   startWorkout,
 } from './repo';
 
@@ -71,6 +72,16 @@ test('экспорт и импорт восстанавливают данные
   await importAll(json);
   expect(await allSets()).toHaveLength(1);
   expect(await getPosition()).toEqual({ cycle: 1, day: 15 });
+});
+
+test('новый цикл: настройки считаются по прошлому циклу, позиция — день 1', async () => {
+  const workoutId = await startWorkout({ cycle: 1, day: 15 });
+  for (const index of [0, 1, 2]) await saveSet({ workoutId, cycle: 1, day: 15, exerciseId: 'ez-curl', kind: 'work', index, lb: 55, reps: 10 });
+  await startNextCycle(1, 'program');
+  expect(await getPosition()).toEqual({ cycle: 2, day: 1 });
+  const cfg = await getCycleConfig(2);
+  expect(cfg.startWeights['ez-curl']).toBe(55);
+  expect(cfg.offsets['db-bench-press']).toBe(5);
 });
 
 test('битый файл не трогает данные', async () => {
