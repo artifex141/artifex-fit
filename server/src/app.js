@@ -2,20 +2,35 @@
 import { createScheduler } from './scheduler.js';
 
 const MAX_BODY = 256 * 1024;
-const BODY_TYPES = ['weight', 'bodyFat', 'leanMass', 'bmi'];
 const UUIDISH = /^[0-9a-zA-Z-]{8,64}$/;
 
-/** Замер из «Команд» → { type, date, value } или null. Вес в кг, жир в процентах. */
+// «Команды» и «Здоровье» называют типы по-разному — принимаем любые разумные написания.
+const TYPE_ALIASES = {
+  weight: ['weight', 'bodymass', 'вес', 'массатела'],
+  bodyFat: ['bodyfat', 'bodyfatpercentage', 'fat', 'fatpercentage', 'жир', 'процентжира', 'процентжиравтеле'],
+  leanMass: ['leanmass', 'leanbodymass', 'сухаямассатела', 'безжироваямассатела', 'безжироваямасса'],
+  bmi: ['bmi', 'bodymassindex', 'имт', 'индексмассытела'],
+};
+const TYPE_BY_KEY = Object.fromEntries(Object.entries(TYPE_ALIASES).flatMap(([t, keys]) => keys.map((k) => [k, t])));
+const typeOf = (raw) => TYPE_BY_KEY[String(raw ?? '').toLowerCase().replace(/[^a-zа-яё]/g, '')];
+
+/**
+ * Замер из «Команд» → { sample: { type, date, value } } или { error: «понятная причина» }.
+ * Вес хранится в кг, жир — в процентах. Значение может прийти текстом вместе с единицей: «80,2 кг», «176.4 lb».
+ */
 export function normalizeSample(raw, now) {
-  if (!raw || !BODY_TYPES.includes(raw.type)) return null;
-  let value = typeof raw.value === 'number' ? raw.value : parseFloat(String(raw.value ?? '').replace(',', '.'));
-  if (!Number.isFinite(value) || value <= 0) return null;
-  const unit = String(raw.unit ?? '').toLowerCase();
-  if ((raw.type === 'weight' || raw.type === 'leanMass') && (unit === 'lb' || unit === 'lbs' || unit.startsWith('фунт'))) value *= 0.45359237;
-  if (raw.type === 'bodyFat' && value <= 1) value *= 100;
+  if (!raw || typeof raw !== 'object') return { error: 'Пустой замер' };
+  const type = typeOf(raw.type);
+  if (!type) return { error: `Неизвестный type «${String(raw.type ?? '')}». Нужен weight, bodyFat, leanMass или bmi` };
+  const text = String(raw.value ?? '').replace(',', '.');
+  let value = typeof raw.value === 'number' ? raw.value : parseFloat(text);
+  if (!Number.isFinite(value) || value <= 0) return { error: `Не число в value: «${String(raw.value ?? '')}»` };
+  const unit = `${raw.unit ?? ''} ${typeof raw.value === 'string' ? raw.value : ''}`.toLowerCase();
+  if ((type === 'weight' || type === 'leanMass') && /(^|[^a-z])lbs?([^a-z]|$)|фунт/.test(unit)) value *= 0.45359237;
+  if (type === 'bodyFat' && value <= 1) value *= 100;
   const parsed = raw.date ? Date.parse(raw.date) : NaN;
   const date = Number.isFinite(parsed) ? parsed : now;
-  return { type: raw.type, date, value: Math.round(value * 10) / 10 };
+  return { sample: { type, date, value: Math.round(value * 10) / 10 } };
 }
 
 /**
@@ -100,15 +115,19 @@ export function createApp({ store, clock, send, publicKey, origins, log = () => 
 
       if (req.method !== 'POST') return reply(res, 404, { error: 'not found' }, origin);
       const body = await readJson(req).catch(() => null);
-      if (!body || !isStr(body.deviceId, 64)) return reply(res, 400, { error: 'deviceId' }, origin);
+      if (!body || !isStr(body.deviceId, 64) || (route === 'POST /api/body' && !UUIDISH.test(body.deviceId))) {
+        log('bad request', route, body ? JSON.stringify(body).slice(0, 200) : 'не JSON');
+        return reply(res, 400, { error: body ? 'Нет или неверный deviceId — скопируй ID в профиле Artifex' : 'Тело запроса не JSON' }, origin);
+      }
 
       if (route === 'POST /api/body') {
-        if (!UUIDISH.test(body.deviceId)) return reply(res, 400, { error: 'deviceId' }, origin);
         const raws = Array.isArray(body.samples) ? body.samples.slice(0, 1000) : [body];
-        const samples = raws.map((r) => normalizeSample(r, clock.now()));
-        if (samples.length === 0 || samples.some((x) => !x)) return reply(res, 400, { error: 'sample' }, origin);
-        for (const x of samples) store.addBody(body.deviceId, x);
-        return reply(res, 204, undefined, origin);
+        const results = raws.map((r) => normalizeSample(r, clock.now()));
+        const bad = results.find((x) => x.error);
+        log('body', String(body.deviceId).slice(0, 8), bad ? `400 ${bad.error}` : `200 x${results.length}`, JSON.stringify(raws[0]).slice(0, 200));
+        if (bad || results.length === 0) return reply(res, 400, { error: bad?.error ?? 'Нет замеров' }, origin);
+        for (const x of results) store.addBody(body.deviceId, x.sample);
+        return reply(res, 200, { ok: true, saved: results.length }, origin);
       }
 
       if (route === 'POST /api/subscribe') {
