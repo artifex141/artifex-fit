@@ -11,6 +11,13 @@ const TYPE_ALIASES = {
   leanMass: ['leanmass', 'leanbodymass', 'сухаямассатела', 'безжироваямассатела', 'безжироваямасса'],
   bmi: ['bmi', 'bodymassindex', 'имт', 'индексмассытела'],
 };
+// Правдоподобные границы (вес и сухая масса — в кг): отсекают вес, отправленный под видом жира или ИМТ.
+const RANGES = {
+  weight: { min: 25, max: 300, name: 'вес', unit: ' кг' },
+  leanMass: { min: 20, max: 200, name: 'сухую массу', unit: ' кг' },
+  bodyFat: { min: 2, max: 70, name: 'процент жира', unit: '%' },
+  bmi: { min: 10, max: 60, name: 'ИМТ', unit: '' },
+};
 const TYPE_BY_KEY = Object.fromEntries(Object.entries(TYPE_ALIASES).flatMap(([t, keys]) => keys.map((k) => [k, t])));
 const typeOf = (raw) => TYPE_BY_KEY[String(raw ?? '').toLowerCase().replace(/[^a-zа-яё]/g, '')];
 
@@ -28,6 +35,10 @@ export function normalizeSample(raw, now) {
   const unit = `${raw.unit ?? ''} ${typeof raw.value === 'string' ? raw.value : ''}`.toLowerCase();
   if ((type === 'weight' || type === 'leanMass') && /(^|[^a-z])lbs?([^a-z]|$)|фунт/.test(unit)) value *= 0.45359237;
   if (type === 'bodyFat' && value <= 1) value *= 100;
+  const range = RANGES[type];
+  if (value < range.min || value > range.max) {
+    return { error: `Не похоже на ${range.name}: ${Math.round(value * 10) / 10}${range.unit}. Проверь тип в «Найти образцы» — возможно, там «Вес»` };
+  }
   const parsed = raw.date ? Date.parse(raw.date) : NaN;
   const date = Number.isFinite(parsed) ? parsed : now;
   return { sample: { type, date, value: Math.round(value * 100) / 100 } }; // 2 знака: пересчёт кг↔lb без дрейфа

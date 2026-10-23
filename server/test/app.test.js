@@ -192,3 +192,15 @@ test('«Команды» шлют значения в заголовках: Devi
   assert.equal(new Date(data.weight[0].date).toISOString(), '2026-10-23T20:54:42.000Z');
   assert.equal(data.bodyFat[0].value, 20.2);
 });
+
+test('невозможные значения отклоняются: вес в поле жира или ИМТ', async () => {
+  const dev = '5cc149e1-f881-46b1-98fb-c7b86b53cccc';
+  const get = (headers) => fetch(`${base}/api/body`, { headers: { Device: dev, Date: '2026-10-23T16:54:42-04:00', ...headers } });
+  const fat = await get({ Type: 'bodyFat', Value: '160.7', Unit: '%' });
+  assert.equal(fat.status, 400);
+  assert.match((await fat.json()).error, /процент жира/i);
+  assert.equal((await get({ Type: 'bmi', Value: '160.7' })).status, 400);
+  assert.equal((await get({ Type: 'bmi', Value: '22.9' })).status, 200);
+  assert.equal((await get({ Type: 'bodyFat', Value: '0.202', Unit: '%' })).status, 200);
+  assert.equal((await get({ Type: 'weight', Value: '1600', Unit: 'lbs' })).status, 400);
+});
