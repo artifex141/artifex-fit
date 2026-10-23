@@ -23,6 +23,7 @@ export interface RestState {
   startedAt: number;
   duration: number;
   setKey: string;
+  label?: string; // текст push-уведомления о конце отдыха
   pausedLeft?: number;
 }
 
@@ -35,5 +36,5 @@ export function pauseRest(r: RestState, now: number): RestState {
 }
 
 export function resumeRest(r: RestState, now: number): RestState {
-  return { startedAt: now, duration: r.pausedLeft ?? restLeft(r, now), setKey: r.setKey };
+  return { startedAt: now, duration: r.pausedLeft ?? restLeft(r, now), setKey: r.setKey, label: r.label };
 }

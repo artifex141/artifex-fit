@@ -5,6 +5,7 @@ import { EXERCISES } from '../../program/exercises';
 import { DAYS } from '../../program/program';
 import { TRAINING_DAYS, dayInfo } from '../../program/schedule';
 import type { DayType } from '../../program/types';
+import { push } from '../../push/push';
 import './profile.css';
 
 const PICK_IDS = (['A', 'B', 'C'] as DayType[]).flatMap((t) =>
@@ -91,6 +92,64 @@ function StartWeights() {
   );
 }
 
+function PushSettings() {
+  const [on, setOn] = useState(push.isOn());
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const standalone =
+    (navigator as Navigator & { standalone?: boolean }).standalone === true || window.matchMedia?.('(display-mode: standalone)').matches;
+
+  const enable = async () => {
+    setBusy(true);
+    const r = await push.enable();
+    setBusy(false);
+    setOn(r === 'on');
+    setMsg(
+      {
+        on: 'Готово: уведомление придёт, когда закончится отдых — даже на заблокированном экране.',
+        denied: 'Уведомления запрещены. Разреши их: Настройки → Уведомления → Artifex.',
+        unsupported: 'Это работает только в приложении, открытом с экрана «Домой» (iOS 16.4+).',
+        error: 'Сервер уведомлений недоступен. Попробуй позже.',
+      }[r],
+    );
+  };
+
+  const testPush = async () => {
+    await push.scheduleRest(Date.now() + 5000, 'Отдых окончен', 'Проверка: так будет выглядеть сигнал');
+    setMsg('Через 5 секунд придёт уведомление. Можно заблокировать экран.');
+  };
+
+  return (
+    <section className="card stack">
+      <h2 className="card-title">Уведомления об отдыхе</h2>
+      <p className="muted small">Сигнал о конце отдыха со звуком — даже когда экран заблокирован. Музыка не прерывается.</p>
+      {!standalone && <p className="hint small">Сначала установи приложение: Safari → «Поделиться» → «На экран „Домой“», и открой его оттуда.</p>}
+      {on ? (
+        <div className="row">
+          <button className="btn grow" onClick={testPush}>
+            Проверить
+          </button>
+          <button
+            className="btn grow"
+            onClick={() => {
+              push.disable();
+              setOn(false);
+              setMsg('Уведомления выключены.');
+            }}
+          >
+            Выключить
+          </button>
+        </div>
+      ) : (
+        <button className="btn primary block" disabled={busy} onClick={enable}>
+          {busy ? 'Подключаю…' : 'Включить уведомления'}
+        </button>
+      )}
+      {msg && <p className="small">{msg}</p>}
+    </section>
+  );
+}
+
 function Backup() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -152,6 +211,7 @@ export function ProfileScreen({ onNewCycle }: { onNewCycle: (cycle: number) => v
     <div className="screen stack">
       <h1 className="screen-title">Профиль</h1>
       <Position />
+      <PushSettings />
       <StartWeights />
       <Backup />
       {endCycle !== undefined && (

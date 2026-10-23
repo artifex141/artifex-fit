@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { push } from '../../push/push';
 import { useNow } from '../useNow';
 import { playBeep, unlockSound } from './sound';
 import { pauseRest, restLeft, resumeRest, type RestState } from './timer';
@@ -36,16 +37,29 @@ export function useRestTimer() {
 
   /** Вызывать синхронно в обработчике нажатия: так iOS разрешит звук. */
   const start = useCallback(
-    (setKey: string, duration: number) => {
+    (setKey: string, duration: number, label = '') => {
       unlockSound();
-      set({ startedAt: Date.now(), duration, setKey });
+      const s = { startedAt: Date.now(), duration, setKey, label };
+      set(s);
+      void push.scheduleRest(s.startedAt + duration * 1000, 'Отдых окончен', label);
     },
     [set],
   );
-  const stop = useCallback(() => set(null), [set]);
+  const stop = useCallback(() => {
+    set(null);
+    void push.cancelRest();
+  }, [set]);
   const toggle = useCallback(() => {
     if (!state) return;
-    set(state.pausedLeft === undefined ? pauseRest(state, Date.now()) : resumeRest(state, Date.now()));
+    const now = Date.now();
+    if (state.pausedLeft === undefined) {
+      set(pauseRest(state, now));
+      void push.cancelRest();
+    } else {
+      const r = resumeRest(state, now);
+      set(r);
+      void push.scheduleRest(now + r.duration * 1000, 'Отдых окончен', r.label ?? '');
+    }
   }, [state, set]);
 
   // Сигнал при переходе через ноль, затем таймер исчезает из строки.
@@ -53,7 +67,7 @@ export function useRestTimer() {
   useEffect(() => {
     if (state && prev.current > 0 && left === 0) {
       playBeep();
-      set(null);
+      set(null); // уведомление сервер отправит сам — не отменяем
     }
     prev.current = left;
   }, [left, state, set]);

@@ -13,6 +13,7 @@ import {
   startWorkout,
   type Position,
 } from '../../db/repo';
+import { EXERCISES } from '../../program/exercises';
 import { DAYS } from '../../program/program';
 import { dayInfo } from '../../program/schedule';
 import { summary as statsSummary } from '../../program/stats';
@@ -87,7 +88,17 @@ export function WorkoutScreen({ onCycleEnd }: { onCycleEnd?: (cycle: number) => 
 
   const save = async (exerciseId: string, index: number, v: SetValues) => {
     // Таймер и разблокировку звука — до первого await: iOS разрешает звук только внутри нажатия.
-    rest.start(`${exerciseId}:${index}`, REST_WORK);
+    const pe = day.exercises.find((e) => e.exerciseId === exerciseId)!;
+    const total = pe.weeks[week - 1].sets;
+    const name = EXERCISES[exerciseId].name;
+    const nextEx = day.exercises[day.exercises.indexOf(pe) + 1];
+    const label =
+      index + 1 < total
+        ? `${name}: подход ${index + 2} из ${total}`
+        : nextEx
+          ? `Дальше: ${EXERCISES[nextEx.exerciseId].name}`
+          : 'Последнее упражнение сделано';
+    rest.start(`${exerciseId}:${index}`, REST_WORK, label);
     setOpenId(exerciseId);
     const workoutId = open?.id ?? (await startWorkout(at));
     await saveSet({ workoutId, cycle: at.cycle, day: at.day, exerciseId, kind: 'work', index, ...v });
