@@ -1,20 +1,63 @@
-.segmented {
-  display: flex; padding: 3px; gap: 2px; margin-top: 8px; width: 100%;
-  background: var(--card); border: 1px solid var(--line); border-radius: 999px;
+/* Экран «Прогресс» — по макету. */
+.progress { display: flex; flex-direction: column; gap: 12px; }
+.p-head { display: flex; align-items: center; gap: 8px; }
+.p-head .screen-title { flex: 1; font-size: 25px; margin: 4px 0; }
+
+.segmented { display: flex; padding: 3px; gap: 2px; background: #15181d; border: 1px solid var(--line); border-radius: 999px; }
+.segmented button { padding: 7px 11px; border-radius: 999px; font-size: 13px; color: var(--muted); }
+.segmented button.on { color: var(--accent); box-shadow: inset 0 0 0 1.5px var(--accent); background: rgba(255, 214, 10, 0.08); }
+
+.p-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.p-tile {
+  display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 10px 8px;
+  background: linear-gradient(180deg, #171a1f, #121418); border: 1px solid var(--line); border-radius: 16px;
 }
-.segmented button { flex: 1; padding: 8px 12px; border-radius: 999px; font-size: 13px; color: var(--muted); }
-.segmented button.on { color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.p-tile-icon svg { width: 18px; height: 18px; color: #c8ccd2; }
+.p-tile-label { font-size: 10.5px; color: var(--muted); line-height: 1.2; }
+.p-tile-value { font-size: 18px; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.p-tile-value small { font-size: 11px; font-weight: 600; margin-left: 1px; }
+.p-tile-delta { font-size: 11px; color: var(--accent); font-weight: 600; white-space: nowrap; }
+.p-tile-caption { font-size: 9.5px; color: var(--muted); line-height: 1.2; }
+.arrow { font-size: 11px; }
 
-.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
-.tile.wide { grid-column: span 2; }
-.tile-label { color: var(--muted); font-size: 13px; }
-.tile-value { font-size: 30px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; }
-.tile-value small { font-size: 15px; font-weight: 600; color: var(--muted); margin-left: 2px; }
+.p-card {
+  background: linear-gradient(180deg, #171a1f, #121418); border: 1px solid var(--line); border-radius: 22px;
+  padding: 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0;
+}
+.p-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.p-card-title { font-size: 17px; font-weight: 600; }
+.p-card-title.with-icon { display: flex; align-items: center; gap: 6px; }
+.p-card-title.with-icon svg { width: 18px; height: 18px; color: #c8ccd2; }
+.p-split { display: flex; align-items: center; gap: 8px; }
+.p-big { flex: none; width: 34%; display: flex; flex-direction: column; gap: 4px; }
+.p-big-value { font-size: 30px; font-weight: 700; white-space: nowrap; }
+.p-big-value small { font-size: 16px; }
+.p-split .chart { flex: 1; min-width: 0; }
+.small { font-size: 12px; }
 
-.card-title { font-size: 18px; margin: 0; }
-.delta { font-weight: 700; font-size: 14px; }
-.delta.up { color: var(--accent); }
-.delta.down { color: var(--muted); }
+.p-body { display: grid; grid-template-columns: 1fr 70px 1fr; align-items: center; gap: 6px; }
+.p-metrics { display: flex; flex-direction: column; gap: 12px; }
+.p-metric { display: flex; flex-direction: column; }
+.p-metric b { font-size: 20px; }
+.p-metric span { font-size: 11px; color: var(--muted); }
+.p-figure { width: 60px; height: 120px; fill: #2a2f37; stroke: #3a404a; stroke-width: 0.8; }
+
+.p-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.p-activity { display: flex; align-items: center; gap: 10px; }
+.p-ring {
+  flex: none; width: 78px; height: 78px; border-radius: 50%; border: 6px solid #23272e;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.p-ring b { font-size: 18px; color: var(--muted); }
+.p-ring span { font-size: 10px; color: var(--muted); }
+.p-act-list { display: flex; flex-direction: column; gap: 6px; }
+.p-sleep { display: flex; flex-direction: column; align-items: flex-end; }
+.p-sleep b { font-size: 15px; }
+.p-sleep small { font-size: 10px; color: var(--muted); }
 
 .chart { width: 100%; height: auto; display: block; }
-.chart-label { fill: var(--muted); font-size: 11px; }
+.chart-grid { stroke: #23272e; stroke-dasharray: 2 4; }
+.chart-label { fill: var(--muted); font-size: 10px; }
+.chart-empty { fill: #4a505a; font-size: 12px; }
+.chart-pill { fill: #1c2026; stroke: var(--line); }
+.chart-pill-text { fill: #fff; font-size: 11px; font-weight: 600; }

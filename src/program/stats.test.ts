@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import type { SetRow, WorkoutRow } from '../db/db';
-import { periodStart, summary, weightSeries } from './stats';
+import { change, periodStart, summary, weightSeries } from './stats';
 
 const T0 = new Date(2026, 9, 20, 18, 0).getTime(); // вт 20.10.2026
 const HOUR = 3_600_000;
@@ -27,6 +27,17 @@ const sets: SetRow[] = [
 test('итоги: только завершённые тренировки в периоде, только рабочие подходы', () => {
   expect(summary(workouts, sets, 0)).toEqual({ count: 2, minutes: 180, tonnage: 2200 + 980 + 700 + 630 });
   expect(summary(workouts, sets, T0 + 24 * HOUR)).toEqual({ count: 1, minutes: 60, tonnage: 1330 });
+});
+
+test('итоги за прошлый период: от начала до начала текущего (не включая)', () => {
+  expect(summary(workouts, sets, 0, T0 + 24 * HOUR)).toEqual({ count: 1, minutes: 120, tonnage: 2200 + 980 });
+});
+
+test('сравнение с прошлым периодом', () => {
+  expect(change(4, 2)).toEqual({ abs: 2, pct: 100 });
+  expect(change(0, 0)).toEqual({ abs: 0, pct: null });
+  expect(change(3, 0)).toEqual({ abs: 3, pct: null });
+  expect(change(90, 120)).toEqual({ abs: -30, pct: -25 });
 });
 
 test('подтягивания с доп. весом в тоннаж не идут', () => {

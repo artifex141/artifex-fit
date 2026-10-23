@@ -19,12 +19,18 @@ function setTonnage(s: SetRow): number {
   return s.lb * s.reps * (kind === 'plates' ? 2 : 1);
 }
 
-export function summary(workouts: WorkoutRow[], sets: SetRow[], from: number): { count: number; minutes: number; tonnage: number } {
-  const done = workouts.filter((w) => w.finishedAt !== undefined && w.finishedAt >= from);
+/** Итоги завершённых тренировок с finishedAt в [from, to). */
+export function summary(workouts: WorkoutRow[], sets: SetRow[], from: number, to = Infinity): { count: number; minutes: number; tonnage: number } {
+  const done = workouts.filter((w) => w.finishedAt !== undefined && w.finishedAt >= from && w.finishedAt < to);
   const ids = new Set(done.map((w) => w.id));
   const minutes = Math.round(done.reduce((m, w) => m + (w.finishedAt! - w.startedAt), 0) / 60_000);
   const tonnage = sets.filter((s) => s.kind === 'work' && ids.has(s.workoutId)).reduce((t, s) => t + setTonnage(s), 0);
   return { count: done.length, minutes, tonnage };
+}
+
+/** Изменение к прошлому периоду: абсолютное и в процентах (null, если сравнивать не с чем). */
+export function change(cur: number, prev: number): { abs: number; pct: number | null } {
+  return { abs: cur - prev, pct: prev === 0 ? null : Math.round(((cur - prev) / prev) * 100) };
 }
 
 export function weightSeries(exerciseId: string, workouts: WorkoutRow[], sets: SetRow[]): { date: number; lb: number }[] {
