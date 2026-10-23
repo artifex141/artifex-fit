@@ -124,7 +124,7 @@ test('замеры из «Команд»: без origin, вес и жир нор
   const r = await fetch(`${base}/api/body?deviceId=${dev}`, { headers: { origin: ORIGIN } });
   assert.equal(r.headers.get('access-control-allow-origin'), ORIGIN);
   const data = await r.json();
-  assert.deepEqual(data.weight.map((x) => x.value), [80.2, 80]);
+  assert.deepEqual(data.weight.map((x) => x.value), [80.2, 80.01]);
   assert.deepEqual(data.bodyFat.map((x) => x.value), [15.4]);
 });
 
@@ -162,7 +162,7 @@ test('значение вместе с единицей текстом: «80,2 �
   await post('/api/body', { deviceId: dev, type: 'weight', value: '80,2 кг', date: '2026-10-03T08:00:00Z' });
   await post('/api/body', { deviceId: dev, type: 'bodyFat', value: '15,2 %', date: '2026-10-03T08:00:00Z' });
   const data = await (await fetch(`${base}/api/body?deviceId=${dev}`)).json();
-  assert.deepEqual(data.weight.map((x) => x.value), [80, 80.2]);
+  assert.deepEqual(data.weight.map((x) => x.value), [80.01, 80.2]);
   assert.deepEqual(data.bodyFat.map((x) => x.value), [15.2]);
 });
 
@@ -174,8 +174,21 @@ test('замер простым GET со значениями в адресе (�
   assert.equal(r.status, 200);
   assert.deepEqual(await r.json(), { ok: true, saved: 1 });
   const data = await (await fetch(`${base}/api/body?deviceId=${dev}`)).json();
-  assert.equal(data.weight[0].value, 80);
+  assert.equal(data.weight[0].value, 80.01);
   assert.equal(new Date(data.weight[0].date).toISOString(), '2026-10-20T05:00:00.000Z');
   const bad = await fetch(`${base}/api/body/add?deviceId=${dev}&type=рост&value=1`);
   assert.equal(bad.status, 400);
+});
+
+test('«Команды» шлют значения в заголовках: Device, Value, Unit, Date (тип по умолчанию — вес)', async () => {
+  const dev = '5cc149e1-f881-46b1-98fb-c7b86b53bbbb';
+  const get = (headers) => fetch(`${base}/api/body`, { headers });
+  const r = await get({ Device: dev, Value: '163.599996768273', Unit: 'lbs', Date: '2026-10-23T16:54:42-04:00' });
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { ok: true, saved: 1 });
+  assert.equal((await get({ Device: dev, Type: 'Body Fat', Value: '0.202', Unit: '%', Date: '2026-10-23T16:54:42-04:00' })).status, 200);
+  const data = await (await fetch(`${base}/api/body?deviceId=${dev}`)).json();
+  assert.equal(data.weight[0].value, 74.21);
+  assert.equal(new Date(data.weight[0].date).toISOString(), '2026-10-23T20:54:42.000Z');
+  assert.equal(data.bodyFat[0].value, 20.2);
 });

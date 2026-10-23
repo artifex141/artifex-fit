@@ -30,7 +30,7 @@ export function normalizeSample(raw, now) {
   if (type === 'bodyFat' && value <= 1) value *= 100;
   const parsed = raw.date ? Date.parse(raw.date) : NaN;
   const date = Number.isFinite(parsed) ? parsed : now;
-  return { sample: { type, date, value: Math.round(value * 10) / 10 } };
+  return { sample: { type, date, value: Math.round(value * 100) / 100 } }; // 2 знака: пересчёт кг↔lb без дрейфа
 }
 
 /**
@@ -111,22 +111,25 @@ export function createApp({ store, clock, send, publicKey, origins, log = () => 
       if (origin && !origins.includes(origin)) return reply(res, 403, { error: 'origin' });
       if (req.method === 'OPTIONS') return reply(res, 204, undefined, origin);
       if (route === 'GET /api/vapid') return reply(res, 200, { publicKey }, origin);
-      if (route === 'GET /api/body/add') {
-        // Запасной путь для «Команд»: значения в адресе, без тела запроса.
+      if (route === 'GET /api/body' || route === 'GET /api/body/add') {
+        // Замер можно прислать GET-запросом: значения в адресе (?deviceId=&type=&value=&unit=&date=)
+        // или в заголовках Device/DeviceId, Type, Value, Unit, Date — так их проще задать в «Командах».
         const q = Object.fromEntries(url.searchParams);
-        if (!UUIDISH.test(q.deviceId ?? '')) return reply(res, 400, { error: 'Нет или неверный deviceId — скопируй ID в профиле Artifex' }, origin);
+        const h = req.headers;
+        const value = q.value ?? h.value;
+        const deviceId = q.deviceId ?? h.deviceid ?? h.device ?? '';
+        if (value === undefined && route === 'GET /api/body') {
+          if (!UUIDISH.test(deviceId)) return reply(res, 400, { error: 'deviceId' }, origin);
+          return reply(res, 200, store.getBody(deviceId), origin);
+        }
+        if (!UUIDISH.test(deviceId)) return reply(res, 400, { error: 'Нет или неверный deviceId — скопируй ID в профиле Artifex' }, origin);
         // «+» часового пояса без экранирования приходит пробелом: «…08:00:00 03:00» → «…08:00:00+03:00»
-        const date = q.date?.replace(/ (\d{2}:?\d{2})$/, '+$1');
-        const r = normalizeSample({ type: q.type, value: q.value, unit: q.unit, date }, clock.now());
-        log('body-get', q.deviceId.slice(0, 8), r.error ? `400 ${r.error}` : '200', url.search.slice(0, 200));
+        const date = (q.date ?? (q.value === undefined ? h.date : undefined))?.replace(/ (\d{2}:?\d{2})$/, '+$1');
+        const r = normalizeSample({ type: q.type ?? h.type ?? 'weight', value, unit: q.unit ?? h.unit, date }, clock.now());
+        log('body-get', deviceId.slice(0, 8), r.error ? `400 ${r.error}` : `200 ${r.sample.type}=${r.sample.value}`);
         if (r.error) return reply(res, 400, { error: r.error }, origin);
-        store.addBody(q.deviceId, r.sample);
+        store.addBody(deviceId, r.sample);
         return reply(res, 200, { ok: true, saved: 1 }, origin);
-      }
-      if (route === 'GET /api/body') {
-        const id = url.searchParams.get('deviceId') ?? '';
-        if (!UUIDISH.test(id)) return reply(res, 400, { error: 'deviceId' }, origin);
-        return reply(res, 200, store.getBody(id), origin);
       }
 
       if (req.method !== 'POST') return reply(res, 404, { error: 'not found' }, origin);
