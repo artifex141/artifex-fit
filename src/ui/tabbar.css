@@ -1,16 +1,23 @@
-/* Нижняя панель — по макету: x 30–912, высота 110, круги Ø80, активный — золотой. */
+/* Нижнее меню — прибито к нижнему краю экрана; низ уходит градиентом в фон. Круги Ø78, активный — золотой. */
 .tabbar {
-  position: fixed; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom) + 1.4rem);
-  width: calc(min(100vw, 480px) - 6rem); margin: 0 auto;
-  height: var(--tabbar-h);
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 20;
+  height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  padding: 0 3rem env(safe-area-inset-bottom);
   display: grid; grid-template-columns: repeat(4, 1fr);
-  background: linear-gradient(180deg, rgba(22, 29, 36, 0.96), rgba(13, 18, 23, 0.96));
+  background: linear-gradient(180deg, rgba(23, 30, 37, 0.97) 0%, rgba(16, 22, 27, 0.98) 55%, rgba(12, 17, 21, 1) 100%);
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 3.6rem;
-  box-shadow: 0 -0.6rem 3rem rgba(0, 0, 0, 0.45);
-  z-index: 20;
+  border-top: 1px solid rgba(255, 255, 255, 0.07); border-radius: 3.6rem 3.6rem 0 0;
+  box-shadow: 0 -0.8rem 3rem rgba(0, 0, 0, 0.45);
 }
-.tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6rem; padding-top: 0; color: var(--muted); font-size: 2.4rem; line-height: 1; }
+/* Края меню по бокам гаснут к низу — как будто панель растворяется в фоне */
+.tabbar::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  border: 1px solid transparent; border-bottom: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0)) border-box;
+  -webkit-mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+}
+.tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6rem; height: var(--tabbar-h); color: var(--muted); font-size: 2.4rem; line-height: 1; }
 .tab-icon {
   width: 7.8rem; height: 7.8rem; border-radius: 50%; display: grid; place-items: center;
   background: var(--glass); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow);

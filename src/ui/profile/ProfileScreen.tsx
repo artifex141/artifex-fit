@@ -5,7 +5,7 @@ import { EXERCISES } from '../../program/exercises';
 import { DAYS } from '../../program/program';
 import { TRAINING_DAYS, dayInfo } from '../../program/schedule';
 import type { DayType } from '../../program/types';
-import { cachedBody, loadBody, metric, type BodyData } from '../../body/body';
+import { cachedBody, inLb, loadBody, metric, type BodyData } from '../../body/body';
 import { push } from '../../push/push';
 import './profile.css';
 
@@ -160,9 +160,9 @@ function ZeppLife() {
   useEffect(() => {
     void loadBody().then(setData);
   }, []);
-  const w = metric(data.weight, Date.now());
+  const w = inLb(metric(data.weight, Date.now()));
   const f = metric(data.bodyFat, Date.now());
-  const day = (t: number) => new Date(t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+  const day = (t: number) => new Date(t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
 
   const copy = async () => {
     try {
@@ -179,7 +179,7 @@ function ZeppLife() {
       <p className="small">
         {w ? (
           <>
-            Последний замер: <b>{w.value} кг</b>
+            Последний замер: <b>{w.value} lb</b>
             {f ? `, жир ${f.value}%` : ''} — {day(w.lastDate)}
           </>
         ) : (
@@ -202,7 +202,7 @@ function ZeppLife() {
             Открой <b>«Команды» → «+»</b>, назови команду <b>Artifex: замеры</b>.
           </li>
           <li>
-            Добавь действие <b>«Найти образцы данных Здоровья»</b>: Тип — <b>Вес</b>, «Дата начала» — <b>за последние 30 дней</b>, сортировка — по дате начала, ограничение — 30.
+            Добавь действие <b>«Найти образцы данных Здоровья»</b> (Find Health Samples): Тип — <b>Вес</b>, <b>без фильтра по дате</b>, сортировка — <b>по дате начала, сначала новые</b>, ограничение — <b>30</b>.
           </li>
           <li>
             Добавь <b>«Повторить с каждым»</b> для найденных образцов, внутри — <b>«Получить содержимое URL»</b>:
@@ -212,7 +212,9 @@ function ZeppLife() {
             <code>deviceId</code> = твой ID (кнопка выше), <code>type</code> = <code>weight</code>, <code>value</code> = «Объект повтора» → <b>Значение</b>, <code>unit</code> = «Объект повтора» → <b>Единица</b>, <code>date</code> = «Объект повтора» → <b>Дата начала</b> (в настройках переменной выбери формат <b>ISO 8601</b>).
           </li>
           <li>
-            Повтори шаги 3–4 для типа <b>Процент жира</b> с <code>type</code> = <code>bodyFat</code>.
+            Повтори шаги 3–4 для <b>Процент жира</b> (<code>bodyFat</code>), <b>Сухая масса тела</b> (<code>leanMass</code>) и <b>ИМТ</b> (<code>bmi</code>). Название типа можно писать и по-английски, как в «Здоровье»: «Body Fat», «Lean Body Mass», «BMI».
+            <br />
+            Проверка: запусти команду вручную — ответ сервера <code>{'{"ok":true,"saved":…}'}</code> значит всё дошло; если там ошибка, в ней написано, что не так.
           </li>
           <li>
             «Команды» → <b>Автоматизация → «+» → Время суток</b> (например, 9:00, ежедневно) → <b>«Запускать сразу»</b> → выбери «Artifex: замеры». Один раз запусти команду вручную.

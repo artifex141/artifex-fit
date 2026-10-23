@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useState } from 'react';
-import { cachedBody, loadBody, metric, type BodyData } from '../../body/body';
+import { cachedBody, inLb, KG_TO_LB, loadBody, metric, type BodyData } from '../../body/body';
 import { db } from '../../db/db';
 import { EXERCISES } from '../../program/exercises';
 import { change, periodStart, summary, weightSeries, type Period } from '../../program/stats';
@@ -101,9 +101,14 @@ export function ProgressScreen() {
   const countDelta = change(s.count, p.count).abs;
 
   // Вес и жир — из Zepp Life (через Health и «Команды»), если пришли; иначе демо.
-  const weight = metric(bodyData.weight, now);
+  const weight = inLb(metric(bodyData.weight, now));
   const fat = metric(bodyData.bodyFat, now);
-  const body = weight && weight.series.length > 0 ? weight.series : demoBodyWeight(now);
+  const lean = inLb(metric(bodyData.leanMass, now));
+  const body = weight && weight.series.length > 0 ? weight.series : demoBodyWeight(now).map((p) => ({ date: p.date, lb: Math.round(p.lb * KG_TO_LB * 10) / 10 }));
+  const weightCaption =
+    weight && now - weight.lastDate > 7 * DAY
+      ? `замер ${new Date(weight.lastDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}`
+      : 'за 4 недели';
   const sign = (v: number) => (v > 0 ? `+${v}` : `${v}`);
   const rhr = demoDaily(30, 64, 9, 11).map((v, i) => ({ date: now - (29 - i) * DAY, lb: v }));
   rhr[rhr.length - 1].lb = 62;
@@ -171,23 +176,23 @@ export function ProgressScreen() {
         <div className="p-split">
           <div className="p-big">
             <span className="p-big-value">
-              {weight ? weight.value : 80.2}
-              <small> кг</small>
+              {weight ? weight.value : 176.8}
+              <small> lb</small>
             </span>
             {weight ? (
               weight.delta !== null && (
                 <span className="p-big-delta">
-                  {sign(weight.delta)} кг <Up up={weight.delta > 0} />
+                  {sign(weight.delta)} lb <Up up={weight.delta > 0} />
                 </span>
               )
             ) : (
               <span className="p-big-delta">
-                -1.4 кг <Up up={false} />
+                -3.1 lb <Up up={false} />
               </span>
             )}
-            <span className="p-big-caption">за 4 недели</span>
+            <span className="p-big-caption">{weightCaption}</span>
           </div>
-          <AreaChart points={body} unit="кг" ticks={weight ? undefined : [84, 82, 80, 78]} dateTicks={5} />
+          <AreaChart points={body} unit="lb" dateTicks={5} />
         </div>
       </section>
 
@@ -203,12 +208,16 @@ export function ProgressScreen() {
             ) : (
               <Metric value="15.2" unit="%" label="Жир" delta="-2.1%" up={false} />
             )}
-            <Metric value="72.0" unit=" кг" label="Мышечная масса" delta="+1.8 кг" up />
+            {lean ? (
+              <Metric value={String(lean.value)} unit=" lb" label="Сухая масса" delta={lean.delta !== null ? `${sign(lean.delta)} lb` : ''} up={(lean.delta ?? 0) > 0} />
+            ) : (
+              <Metric value="158.7" unit=" lb" label="Мышечная масса" delta="+4.0 lb" up />
+            )}
           </div>
           <img className="p-figure" src={`${import.meta.env.BASE_URL}ui/body-figure.webp`} alt="" />
           <div className="p-metrics">
             <Metric value="58.4" unit="%" label="Вода" delta="+1.2%" up />
-            <Metric value="3.1" unit=" кг" label="Костная масса" delta="+0.1 кг" up />
+            <Metric value="6.8" unit=" lb" label="Костная масса" delta="+0.2 lb" up />
           </div>
         </div>
       </section>

@@ -25,7 +25,9 @@
 
 * { box-sizing: border-box; }
 
-html, body, #root { margin: 0; min-height: 100%; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+#root { position: relative; height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+.app-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
 
 /* 1rem = 1/94.1 ширины экрана: размеры из макета (941 px) переносятся как px/10 rem. */
 html { font-size: calc(min(100vw, 480px) / 94.1); }
@@ -38,7 +40,6 @@ body {
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
-  overscroll-behavior-y: none;
 }
 
 button, input, select { font: inherit; color: inherit; }

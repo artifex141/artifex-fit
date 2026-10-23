@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { metric } from './body';
+import { inLb, metric } from './body';
 
 const DAY = 86_400_000;
 const NOW = Date.UTC(2026, 9, 23, 12);
@@ -26,4 +26,12 @@ test('один замер — без изменения', () => {
   const m = metric([{ date: NOW - DAY, value: 15.2 }], NOW)!;
   expect(m.value).toBe(15.2);
   expect(m.delta).toBeNull();
+});
+
+test('вес показываем в фунтах: значение, изменение и ряд', () => {
+  const m = inLb(metric([{ date: NOW - 29 * DAY, value: 81.6 }, { date: NOW - DAY, value: 80.2 }], NOW))!;
+  expect(m.value).toBe(176.8);
+  expect(m.delta).toBe(-3.1);
+  expect(m.series.map((p) => p.lb)).toEqual([179.9, 176.8]);
+  expect(inLb(null)).toBeNull();
 });
