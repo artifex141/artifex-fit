@@ -43,7 +43,7 @@ export function mealByTime(date: Date): Meal;                           // <11 �
 export function autoTargets(p: { weightLb: number; heightCm: number; age: number; goal: 'mass' | 'cut' | 'keep' }): Targets;
 export function dayKey(date: Date): string;                              // 'YYYY-MM-DD' по локальному времени
 ```
-- [ ] Тесты: `scale({kcal:350,p:12,f:1.5,c:72}, 150)` → `{kcal:525,p:18,f:2.3,c:108}`; `sumMacros` складывает с округлением; `mealByTime` для 08:00/12:00/18:00/22:00; `autoTargets({weightLb:160.7, heightCm:179, age:28, goal:'mass'})` → `{kcal:2920, p:161, f:81, c:386, manual:false}` (BMR = 10·72.89 + 6.25·179 − 5·28 + 5; ×1.55; +10 %; округление ккал до 10; Б = round(lb); Ж = round(0.25·kcal/9); У = round((kcal − 4Б − 9Ж)/4)); `cut` −20 %, `keep` 0 %; `dayKey(new Date(2026,9,23,23,30))` → `'2026-10-23'`.
+- [ ] Тесты: `scale({kcal:350,p:12,f:1.5,c:72}, 150)` → `{kcal:525,p:18,f:2.3,c:108}`; `sumMacros` складывает с округлением; `mealByTime` для 08:00/12:00/18:00/22:00; `autoTargets({weightLb:160.7, heightCm:179, age:28, goal:'mass'})` → `{kcal:2920, p:161, f:81, c:387, manual:false}` (BMR = 10·72.89 + 6.25·179 − 5·28 + 5; ×1.55; +10 %; округление ккал до 10; Б = round(lb); Ж = round(0.25·kcal/9); У = round((kcal − 4Б − 9Ж)/4)); `cut` −20 %, `keep` 0 %; `dayKey(new Date(2026,9,23,23,30))` → `'2026-10-23'`.
 - [ ] RED → реализация → GREEN; коммит `feat(nutrition): calculations`.
 
 ### Task 2: Хранилище питания (Dexie v2)
@@ -112,5 +112,8 @@ export function createFood({ fetch, apiKey, model, now, cacheFile, log }) // →
 
 ### Task 7: Развёртывание и проверка
 - [ ] Выложить сервер на VPS (как раньше), проверить `GET /api/food/barcode/<известный код>` и 503 без ключа на `/api/food/photo`.
-- [ ] Дать пользователю команду для ключа: `ssh root@31.97.131.112 "cd /opt/artifex-fit-push && read -s -p 'OPENAI_API_KEY: ' K && echo && echo OPENAI_API_KEY=\$K >> .env && echo OPENAI_MODEL=gpt-6.1-sol >> .env && docker restart artifex-fit-push"` (ключ вводит сам, в чат не присылает).
+- [ ] На VPS положить `/opt/artifex-fit-push/redeploy.sh` (build + `docker rm -f` + `docker run --env-file .env …`), т.к. `docker restart` не перечитывает `.env`.
+- [ ] Дать пользователю команду для ключа: `ssh -t root@31.97.131.112 "cd /opt/artifex-fit-push && read -s -p 'OPENAI_API_KEY: ' K && echo && sed -i '/^OPENAI_/d' .env && printf 'OPENAI_API_KEY=%s
+OPENAI_MODEL=gpt-6.1-sol
+' \"\$K\" >> .env && ./redeploy.sh"` (ключ вводит сам, в чат не присылает).
 - [ ] Финальное ревью ветки (свежий ревьюер), исправления, публикация, проверка на 390 px.
