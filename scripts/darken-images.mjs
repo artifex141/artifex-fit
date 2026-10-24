@@ -1,5 +1,6 @@
 // Перекрашивает карточки упражнений (белый фон, синие стрелки) под макет: тёмный фон, жёлтые стрелки.
-// Использование: node scripts/darken-images.mjs <папка с исходными .webp> [папка вывода=public/exercises]
+// Использование: node scripts/darken-images.mjs <папка с исходными .webp/.png/.jpg> [папка вывода=public/exercises]
+// PNG с прозрачным фоном кладутся прямо на тёмный градиент по альфе; белый фон вырезается заливкой от краёв.
 import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
@@ -11,7 +12,41 @@ const TOP = [27, 33, 40]; // фон кадра сверху
 const BOTTOM = [12, 16, 20]; // и снизу
 const YELLOW = [245, 197, 24];
 
-for (const file of (await readdir(src)).filter((f) => f.endsWith('.webp'))) {
+const bgAt = (y, h) => TOP.map((c, k) => c + (BOTTOM[k] - c) * (y / h));
+// Синие стрелки → жёлтые (s — насколько пиксель «стрелочный»), остальное как есть.
+const recolor = (r, g, b, bg) => {
+  if (b - r > 25 && b >= g) {
+    const s = Math.min(1, (b - r) / 140);
+    return bg.map((c, k) => c + (YELLOW[k] - c) * s);
+  }
+  return [r, g, b];
+};
+
+/** Прозрачный фон: смешиваем пиксель с градиентом по альфе. null — если прозрачности почти нет. */
+async function onAlpha(file) {
+  const { data, info } = await sharp(file).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const { width: w, height: h } = info;
+  let clear = 0;
+  for (let i = 0; i < w * h; i++) if (data[i * 4 + 3] < 250) clear++;
+  if (clear < w * h * 0.05) return null;
+  const out = Buffer.alloc(w * h * 3);
+  for (let i = 0; i < w * h; i++) {
+    const bg = bgAt(Math.floor(i / w), h);
+    const a = data[i * 4 + 3] / 255;
+    const c = recolor(data[i * 4], data[i * 4 + 1], data[i * 4 + 2], bg);
+    for (let k = 0; k < 3; k++) out[i * 3 + k] = bg[k] + (c[k] - bg[k]) * a;
+  }
+  return { out, w, h };
+}
+
+for (const file of (await readdir(src)).filter((f) => /\.(webp|png|jpe?g)$/i.test(f))) {
+  const name = file.replace(/\.[^.]+$/, '.webp');
+  const alpha = await onAlpha(path.join(src, file));
+  if (alpha) {
+    await sharp(alpha.out, { raw: { width: alpha.w, height: alpha.h, channels: 3 } }).resize({ width: 1500 }).webp({ quality: 74 }).toFile(path.join(out, name));
+    console.log('ok (alpha)', name);
+    continue;
+  }
   const { data, info } = await sharp(path.join(src, file)).removeAlpha().raw().toBuffer({ resolveWithObject: true });
   const { width: w, height: h } = info;
   const px = (i) => [data[i * 3], data[i * 3 + 1], data[i * 3 + 2]];
@@ -95,6 +130,6 @@ for (const file of (await readdir(src)).filter((f) => f.endsWith('.webp'))) {
   await sharp(outBuf, { raw: { width: w, height: h, channels: 3 } })
     .resize({ width: 1500 })
     .webp({ quality: 74 })
-    .toFile(path.join(out, file));
-  console.log('ok', file);
+    .toFile(path.join(out, name));
+  console.log('ok', name);
 }

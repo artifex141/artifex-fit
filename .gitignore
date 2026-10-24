@@ -8,3 +8,6 @@ coverage/
 .superpowers/
 tsconfig.tsbuildinfo
 .design/
+
+# Исходники картинок от пользователя (в приложение идут сжатые копии из public/)
+photo/

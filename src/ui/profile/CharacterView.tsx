@@ -1,11 +1,13 @@
 import { useRef, useState } from 'react';
 
-// Шесть ракурсов из четырёх кадров: стороны «за спиной» — зеркальные копии.
+// Восемь ракурсов из пяти кадров: вторая половина оборота — зеркальные копии.
 const VIEWS = [
   { src: 'front', flip: false },
   { src: 'three-quarter', flip: false },
   { src: 'side', flip: false },
+  { src: 'back-three-quarter', flip: false },
   { src: 'back', flip: false },
+  { src: 'back-three-quarter', flip: true },
   { src: 'side', flip: true },
   { src: 'three-quarter', flip: true },
 ];
