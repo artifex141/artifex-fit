@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useState } from 'react';
 import { cachedBody, inLb, KG_TO_LB, loadBody, metric, type BodyData } from '../../body/body';
+import { hm, sleepNights } from '../../body/sleep';
 import { db } from '../../db/db';
 import { daysWithEntries } from '../../db/nutrition';
 import { avgKcalPerDay, dayKey } from '../../nutrition/calc';
@@ -119,8 +120,13 @@ export function ProgressScreen() {
   const sign = (v: number) => (v > 0 ? `+${v}` : `${v}`);
   const rhr = demoDaily(30, 64, 9, 11).map((v, i) => ({ date: now - (29 - i) * DAY, lb: v }));
   rhr[rhr.length - 1].lb = 62;
-  const sleepDeep = demoDaily(30, 5.2, 3, 5);
-  const sleepTotal = demoDaily(30, 7.4, 2.6, 9);
+  // Сон — последние 30 ночей из «Здоровья»; пока данных нет — демо.
+  const nights = sleepNights(bodyData.sleep ?? []).slice(-30);
+  const sleepBars = nights.length
+    ? nights.map((n) => ({ date: n.end, lb: Math.round((n.asleepMin / 60) * 10) / 10 }))
+    : demoDaily(30, 7.4, 2.6, 9).map((v, i) => ({ date: now - (29 - i) * DAY, lb: v }));
+  const sleepDeep = nights.length ? nights.map((n) => Math.round((n.deepMin / 60) * 10) / 10) : demoDaily(30, 5.2, 3, 5);
+  const sleepAvg = hm(nights.length ? nights.reduce((s, n) => s + n.asleepMin, 0) / nights.length : 448);
 
   const finishedIds = new Set(workouts.filter((w) => w.finishedAt !== undefined).map((w) => w.id));
   const logged = Object.values(EXERCISES).filter((e) => sets.some((x) => x.exerciseId === e.id && x.kind === 'work' && finishedIds.has(x.workoutId)));
@@ -302,13 +308,16 @@ export function ProgressScreen() {
             </span>
             <span className="p-sleep-avg">
               <b>
-                7<small> ч </small>28<small> м</small>
+                {sleepAvg.h}
+                <small> ч </small>
+                {sleepAvg.m}
+                <small> м</small>
               </b>
               <span>в среднем</span>
             </span>
             <More />
           </div>
-          <BarChart values={sleepTotal.map((v, i) => ({ date: now - (29 - i) * DAY, lb: v }))} inner={sleepDeep} unit="ч" ticks={[10, 5, 0]} sleep />
+          <BarChart values={sleepBars} inner={sleepDeep} unit="ч" ticks={[10, 5, 0]} sleep />
         </section>
       </div>
 

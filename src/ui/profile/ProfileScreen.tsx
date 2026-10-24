@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useState } from 'react';
 import { cachedBody, inLb, loadBody, metric, type BodyData } from '../../body/body';
+import { hm, lastNight, sleepNights } from '../../body/sleep';
 import { db } from '../../db/db';
 import { entriesOn, getTargets } from '../../db/nutrition';
 import { getCycleConfig, getPosition, getProfile, saveProfile } from '../../db/repo';
@@ -165,6 +166,9 @@ export function ProfileScreen({ onNewCycle }: { onNewCycle: (cycle: number) => v
   const ach = achievements(workouts, body, now);
   const food = nutritionScore(eaten ?? 0, resolveTargets(savedTargets ?? null, profile, body, now)?.kcal ?? null);
   const cycle = position ? cycleProgress(position) : null;
+  // Сон — из «Здоровья» через «Команды»; пока не пришёл — демо.
+  const night = lastNight(sleepNights(body.sleep ?? []), now);
+  const sleepHm = hm(night?.min ?? 468);
   const metrics: Metric[] = [
     strengthMetric(strength),
     demo(I.heart, 'Выносливость', 6),
@@ -330,7 +334,7 @@ export function ProfileScreen({ onNewCycle }: { onNewCycle: (cycle: number) => v
         <div className="pf-health-grid">
           {[
             { icon: <svg viewBox="0 0 24 24"><path d={I.heart} fill="#f5c518" /></svg>, title: 'Пульс', value: <>62</>, unit: 'bpm', status: 'В норме', frac: 0.62 },
-            { icon: <svg viewBox="0 0 24 24"><path d={I.moon} fill="#b9c4ff" /></svg>, title: 'Сон', value: <>7<small>ч</small> 48<small>м</small></>, unit: '', status: 'Хорошо', frac: 0.78 },
+            { icon: <svg viewBox="0 0 24 24"><path d={I.moon} fill="#b9c4ff" /></svg>, title: 'Сон', value: <>{sleepHm.h}<small>ч</small> {sleepHm.m}<small>м</small></>, unit: '', status: night?.status ?? 'Хорошо', frac: night?.frac ?? 0.78 },
             { icon: <svg viewBox="0 0 24 24" fill="none" stroke="#f5c518" strokeWidth="2.2" strokeLinecap="round"><path d="M20 12a8 8 0 0 1-14 5.3M4 12a8 8 0 0 1 14-5.3M18 3v4h-4M6 21v-4h4" /></svg>, title: 'Восстановление', value: <>82<small>%</small></>, unit: '', status: 'Высокое', frac: 0.82 },
           ].map((m) => (
             <div key={m.title} className="pf-metric">

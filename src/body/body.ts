@@ -1,11 +1,12 @@
 // Замеры тела из Zepp Life → Apple Health → «Команды» → сервер fit.artifex.mobi → сюда.
 import { push } from '../push/push';
+import type { SleepSegment } from './sleep';
 
 export interface Sample {
   date: number;
   value: number;
 }
-export type BodyData = Partial<Record<'weight' | 'bodyFat' | 'leanMass' | 'bmi', Sample[]>>;
+export type BodyData = Partial<Record<'weight' | 'bodyFat' | 'leanMass' | 'bmi', Sample[]>> & { sleep?: SleepSegment[] };
 
 const DAY = 86_400_000;
 const CACHE = 'artifex.body';

@@ -240,3 +240,37 @@ test('маршруты питания: фото до 4 МБ, штрихкод, �
   assert.equal(seen.length, 4);
   srv.close();
 });
+
+test('сон из «Команд»: отрезок с началом, концом и стадией; повтор не дублируется', async () => {
+  const dev = '5cc149e1-f881-46b1-98fb-c7b86b53dddd';
+  const get = (headers) => fetch(`${base}/api/body`, { headers: { Device: dev, Type: 'Sleep', ...headers } });
+  const core = { Start: '2024-11-25T01:12:00 03:00', End: '2024-11-25T02:40:00+03:00', Value: 'Core' };
+  const r = await get(core);
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { ok: true, saved: 1 });
+  assert.equal((await get(core)).status, 200); // тот же отрезок ещё раз
+  assert.equal((await get({ Date: '2024-11-24T23:30:00+03:00', End: '2024-11-25T07:05:00+03:00', Value: 'In Bed' })).status, 200);
+  const ru = new URLSearchParams({ deviceId: dev, type: 'сон', start: '2024-11-25T03:00:00+03:00', end: '2024-11-25T03:40:00+03:00', value: 'Глубокий' });
+  assert.equal((await fetch(`${base}/api/body/add?${ru}`)).status, 200);
+  assert.equal((await get({ Start: '2024-11-25T04:00:00+03:00', End: '2024-11-25T04:20:00+03:00' })).status, 200); // без стадии — «сон»
+  const data = await (await fetch(`${base}/api/body?deviceId=${dev}`)).json();
+  assert.deepEqual(
+    data.sleep.map((s) => [new Date(s.start).toISOString(), (s.end - s.start) / 60_000, s.stage]),
+    [
+      ['2024-11-24T20:30:00.000Z', 455, 'inBed'],
+      ['2024-11-24T22:12:00.000Z', 88, 'core'],
+      ['2024-11-25T00:00:00.000Z', 40, 'deep'],
+      ['2024-11-25T01:00:00.000Z', 20, 'asleep'],
+    ],
+  );
+});
+
+test('сон без конца или с концом раньше начала — понятная ошибка', async () => {
+  const dev = '5cc149e1-f881-46b1-98fb-c7b86b53eeee';
+  const get = (headers) => fetch(`${base}/api/body`, { headers: { Device: dev, Type: 'Sleep', Value: 'Core', ...headers } });
+  const noEnd = await get({ Start: '2024-11-25T01:12:00+03:00' });
+  assert.equal(noEnd.status, 400);
+  assert.match((await noEnd.json()).error, /End/);
+  assert.equal((await get({ Start: '2024-11-25T03:00:00+03:00', End: '2024-11-25T02:00:00+03:00' })).status, 400);
+  assert.equal((await get({ Start: '2024-11-24T03:00:00+03:00', End: '2024-11-25T05:00:00+03:00' })).status, 400); // > 24 ч
+});

@@ -40,6 +40,16 @@ export function createStore(file) {
       if (list.length > 2000) list.splice(0, list.length - 2000);
       save();
     },
+    /** Отрезок сна { start, end, stage }; тот же (начало + стадия) заменяется — повторный запуск «Команды» не дублирует. */
+    addSleep(deviceId, seg) {
+      const list = ((data.body[deviceId] ??= {}).sleep ??= []);
+      const i = list.findIndex((x) => x.start === seg.start && x.stage === seg.stage);
+      if (i >= 0) list[i] = seg;
+      else list.push(seg);
+      list.sort((a, b) => a.start - b.start);
+      if (list.length > 5000) list.splice(0, list.length - 5000);
+      save();
+    },
     getBody: (deviceId) => data.body[deviceId] ?? {},
     jobs: () => data.jobs,
     setJobs(jobs) {

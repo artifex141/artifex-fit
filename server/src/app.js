@@ -18,6 +18,31 @@ const RANGES = {
   bodyFat: { min: 2, max: 70, name: 'процент жира', unit: '%' },
   bmi: { min: 10, max: 60, name: 'ИМТ', unit: '' },
 };
+// Сон: отрезок с началом и концом; стадии из «Здоровья» на английском или русском.
+const SLEEP_TYPES = ['sleep', 'sleepanalysis', 'сон', 'анализсна'];
+const SLEEP_STAGES = {
+  inBed: ['inbed', 'вкровати'],
+  awake: ['awake', 'бодрствование', 'пробуждение'],
+  core: ['core', 'asleepcore', 'основной', 'light'],
+  deep: ['deep', 'asleepdeep', 'глубокий'],
+  rem: ['rem', 'asleeprem', 'быстрый', 'фазабыстрогосна'],
+};
+const STAGE_BY_KEY = Object.fromEntries(Object.entries(SLEEP_STAGES).flatMap(([s, keys]) => keys.map((k) => [k, s])));
+const key = (raw) => String(raw ?? '').toLowerCase().replace(/[^a-zа-яё]/g, '');
+const isSleep = (raw) => SLEEP_TYPES.includes(key(raw));
+// «+» часового пояса без экранирования приходит пробелом: «…08:00:00 03:00» → «…08:00:00+03:00»
+const fixTz = (d) => (typeof d === 'string' ? d.trim().replace(/ (\d{2}:?\d{2})$/, '+$1') : d);
+
+/** Отрезок сна → { segment: { start, end, stage } } или { error }. Без стадии или с незнакомой — «asleep». */
+export function normalizeSleep(raw) {
+  const start = Date.parse(fixTz(raw.start) ?? '');
+  const end = Date.parse(fixTz(raw.end) ?? '');
+  if (!Number.isFinite(start)) return { error: 'Нет начала сна: добавь заголовок Start (Start Date в формате ISO 8601)' };
+  if (!Number.isFinite(end)) return { error: 'Нет конца сна: добавь заголовок End (End Date в формате ISO 8601)' };
+  if (end <= start || end - start > 24 * 3600_000) return { error: 'Конец сна должен быть позже начала, отрезок — не длиннее суток' };
+  return { segment: { start, end, stage: STAGE_BY_KEY[key(raw.value)] ?? 'asleep' } };
+}
+
 const TYPE_BY_KEY = Object.fromEntries(Object.entries(TYPE_ALIASES).flatMap(([t, keys]) => keys.map((k) => [k, t])));
 const typeOf = (raw) => TYPE_BY_KEY[String(raw ?? '').toLowerCase().replace(/[^a-zа-яё]/g, '')];
 
@@ -170,14 +195,22 @@ export function createApp({ store, clock, send, publicKey, origins, food = null,
         const h = req.headers;
         const value = q.value ?? h.value;
         const deviceId = q.deviceId ?? h.deviceid ?? h.device ?? '';
+        const type = q.type ?? h.type;
+        if (isSleep(type)) {
+          if (!UUIDISH.test(deviceId)) return reply(res, 400, { error: 'Нет или неверный deviceId — скопируй ID в профиле Artifex' }, origin);
+          const r = normalizeSleep({ start: q.start ?? h.start ?? q.date ?? h.date, end: q.end ?? h.end, value });
+          log('sleep', deviceId.slice(0, 8), r.error ? `400 ${r.error}` : `200 ${r.segment.stage} ${Math.round((r.segment.end - r.segment.start) / 60_000)}м`, `value=${String(value ?? '').slice(0, 40)}`);
+          if (r.error) return reply(res, 400, { error: r.error }, origin);
+          store.addSleep(deviceId, r.segment);
+          return reply(res, 200, { ok: true, saved: 1 }, origin);
+        }
         if (value === undefined && route === 'GET /api/body') {
           if (!UUIDISH.test(deviceId)) return reply(res, 400, { error: 'deviceId' }, origin);
           return reply(res, 200, store.getBody(deviceId), origin);
         }
         if (!UUIDISH.test(deviceId)) return reply(res, 400, { error: 'Нет или неверный deviceId — скопируй ID в профиле Artifex' }, origin);
-        // «+» часового пояса без экранирования приходит пробелом: «…08:00:00 03:00» → «…08:00:00+03:00»
-        const date = (q.date ?? (q.value === undefined ? h.date : undefined))?.replace(/ (\d{2}:?\d{2})$/, '+$1');
-        const r = normalizeSample({ type: q.type ?? h.type ?? 'weight', value, unit: q.unit ?? h.unit, date }, clock.now());
+        const date = fixTz(q.date ?? (q.value === undefined ? h.date : undefined));
+        const r = normalizeSample({ type: type ?? 'weight', value, unit: q.unit ?? h.unit, date }, clock.now());
         log('body-get', deviceId.slice(0, 8), r.error ? `400 ${r.error}` : `200 ${r.sample.type}=${r.sample.value}`);
         if (r.error) return reply(res, 400, { error: r.error }, origin);
         store.addBody(deviceId, r.sample);
