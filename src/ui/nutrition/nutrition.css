@@ -129,3 +129,43 @@
 .nt-danger { color: #ff8a80; }
 .nt-pick { position: relative; overflow: hidden; }
 .nt-pick input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; }
+.nt-sheet-back { z-index: 70; }
+.nt-sheet { max-height: 86dvh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.nt-sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.nt-sheet-head .card-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nt-sheet-x { flex: none; width: 36px; height: 36px; font-size: 26px; line-height: 1; color: var(--muted); }
+.nt-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.nt-grams { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.nt-step { width: 44px; height: 44px; color: var(--accent); }
+.nt-step svg { width: 50%; height: 50%; }
+.nt-grams-input { width: 96px; text-align: center; font-size: 22px; font-weight: 600; }
+.nt-portion { margin: 0; text-align: center; font-size: 15px; }
+.nt-targets .field { padding: 0 8px; }
+
+/* Списки в листах: найденные продукты, дни истории */
+.nt-found-list { display: flex; flex-direction: column; }
+.nt-found-caption { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 4px 0 6px; }
+.nt-found, .nt-day { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 6px 0; text-align: left; border-top: 1px solid var(--line); }
+.nt-found:first-of-type, .nt-found-caption + .nt-found, .nt-day:first-child { border-top: 0; }
+.nt-found-thumb { flex: none; width: 44px; height: 44px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: #1a2129; color: var(--muted); }
+.nt-found-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.nt-found-thumb svg { width: 22px; height: 22px; }
+.nt-found-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.nt-found-text span { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nt-found-text small { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nt-day > span:first-child { flex: 1; font-size: 16px; }
+.nt-day > svg { width: 18px; height: 18px; color: var(--muted); }
+.nt-looking { align-items: center; color: var(--text); font-size: 17px; }
+
+/* Сканер: видео на весь экран, рамка по центру */
+.sc { position: fixed; inset: 0; z-index: 70; background: #000; }
+.sc-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.sc-frame {
+  position: absolute; left: 50%; top: 42%; width: 74vw; max-width: 340px; height: 30vw; max-height: 150px; transform: translate(-50%, -50%);
+  border-radius: 18px; border: 2px solid var(--accent); box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.45), 0 0 18px rgba(245, 197, 24, 0.5);
+}
+.sc-head { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 14px; padding: calc(env(safe-area-inset-top) + 14px) 16px 14px; color: #fff; font-size: 16px; }
+.sc-back { width: 44px; height: 44px; color: #fff; }
+.sc-bottom { position: absolute; left: 0; right: 0; bottom: 0; padding: 16px 16px calc(env(safe-area-inset-bottom) + 18px); background: linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.8) 40%); }
+.sc-bottom .field { flex: 1; min-width: 0; }
+.sc-error { margin: 0 0 12px; color: #fff; font-size: 15px; line-height: 1.4; }

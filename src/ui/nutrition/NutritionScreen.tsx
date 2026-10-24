@@ -3,18 +3,37 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { cachedBody, inLb, loadBody, metric, type BodyData } from '../../body/body';
 import { db } from '../../db/db';
-import { deleteEntry, entriesOn, getTargets, type EntryRow } from '../../db/nutrition';
+import { addEntries, deleteEntry, entriesOn, getTargets, setEntryGrams, upsertFood, type EntryRow } from '../../db/nutrition';
 import { getProfile } from '../../db/repo';
 import { autoTargets, dayKey, mealByTime, MEALS, sumMacros, type Meal, type Targets } from '../../nutrition/calc';
 import { ageFrom, DEFAULT_PROFILE, type ProfileInfo } from '../../profile/profile';
 import { ChevronIcon } from '../kit';
+import { fetchBarcode } from '../../nutrition/foodApi';
+import type { ReviewItem } from '../../nutrition/photo';
+import { GramsSheet } from './GramsSheet';
+import { HistorySheet } from './HistorySheet';
+import { ManualSheet } from './ManualSheet';
 import { MealCard } from './MealCard';
+import { Scanner } from './Scanner';
+import { SearchSheet } from './SearchSheet';
+import type { FoodPick } from './Sheet';
+import { TargetsSheet } from './TargetsSheet';
 import { PhotoReview } from './PhotoReview';
 import { Summary } from './Summary';
 import { CalendarIcon, DotsIcon, HistoryIcon, PlusIcon, ScanIcon, SearchIcon } from './icons';
 import './nutrition.css';
 
 const DAY = 86_400_000;
+
+/** Открытый лист. pick — продукт добавляется в экран проверки фото, а не сразу в дневник. */
+type SheetState =
+  | { kind: 'search'; meal: Meal; pick?: (it: ReviewItem) => void }
+  | { kind: 'scan'; meal: Meal }
+  | { kind: 'manual'; meal: Meal; barcode?: string; note?: string; pick?: (it: ReviewItem) => void }
+  | { kind: 'grams'; food: FoodPick; meal: Meal; pick?: (it: ReviewItem) => void }
+  | { kind: 'edit'; entry: EntryRow }
+  | { kind: 'history' }
+  | { kind: 'targets' };
 
 /** Норма: сохранённая; иначе расчёт из профиля и последнего веса; без данных — null. */
 export function resolveTargets(saved: Targets | null, profile: ProfileInfo, body: BodyData, now: number): Targets | null {
@@ -64,6 +83,8 @@ export function NutritionScreen() {
   const [open, setOpen] = useState<Set<Meal>>(() => new Set([mealByTime(new Date())]));
   const [dateMenu, setDateMenu] = useState(false);
   const [itemMenu, setItemMenu] = useState<EntryRow | null>(null);
+  const [sheet, setSheet] = useState<SheetState | null>(null);
+  const [looking, setLooking] = useState(false);
   const [photo, setPhoto] = useState<{ file: Blob; meal: Meal } | null>(null);
   const camera = useRef<HTMLInputElement>(null);
   const cameraMeal = useRef<Meal>('breakfast');
@@ -74,6 +95,28 @@ export function NutritionScreen() {
   const list = entries ?? [];
   const thumbs = useThumbs(list);
   const targets = saved === undefined ? null : resolveTargets(saved, profile, body, Date.now());
+  const defaultMeal = mealByTime(new Date());
+
+  /** Записать продукт в дневник выбранного дня (или отдать в экран проверки фото). */
+  const commit = async (food: FoodPick, grams: number, meal: Meal, pick?: (it: ReviewItem) => void) => {
+    if (pick) {
+      pick({ name: food.name, grams, per100: food.per100 });
+      return setSheet(null);
+    }
+    const { name, brand, barcode, image, per100, source } = food;
+    const foodId = await upsertFood({ source, name, per100, ...(brand && { brand }), ...(barcode && { barcode }), ...(image && { image }) });
+    await addEntries(key, meal, [{ name, grams, per100, foodId }]);
+    setOpen((s) => new Set(s).add(meal));
+    setSheet(null);
+  };
+
+  const lookup = async (code: string, meal: Meal) => {
+    setLooking(true);
+    const r = await fetchBarcode(code);
+    setLooking(false);
+    if ('food' in r) setSheet({ kind: 'grams', food: { ...r.food, source: 'off' }, meal });
+    else setSheet({ kind: 'manual', meal, barcode: code, note: 'notFound' in r ? 'Этого продукта нет в базе Open Food Facts' : r.error });
+  };
   const toggle = (m: Meal) =>
     setOpen((s) => {
       const n = new Set(s);
@@ -93,7 +136,7 @@ export function NutritionScreen() {
           <span className="nt-date-label">{dateLabel(date)}</span>
           <ChevronIcon dir="down" />
         </button>
-        <button className="glass-btn nt-menu" aria-label="Дневная норма">
+        <button className="glass-btn nt-menu" aria-label="Дневная норма" onClick={() => setSheet({ kind: 'targets' })}>
           <DotsIcon />
         </button>
       </header>
@@ -126,12 +169,12 @@ export function NutritionScreen() {
 
       <nav className="nt-card nt-actions">
         {[
-          { icon: <SearchIcon />, label: 'Поиск продуктов' },
-          { icon: <ScanIcon />, label: 'Сканировать' },
-          { icon: <PlusIcon />, label: 'Добавить вручную' },
-          { icon: <HistoryIcon />, label: 'История' },
+          { icon: <SearchIcon />, label: 'Поиск продуктов', open: { kind: 'search', meal: defaultMeal } },
+          { icon: <ScanIcon />, label: 'Сканировать', open: { kind: 'scan', meal: defaultMeal } },
+          { icon: <PlusIcon />, label: 'Добавить вручную', open: { kind: 'manual', meal: defaultMeal } },
+          { icon: <HistoryIcon />, label: 'История', open: { kind: 'history' } },
         ].map((a) => (
-          <button key={a.label} className="nt-action">
+          <button key={a.label} className="nt-action" onClick={() => setSheet(a.open as SheetState)}>
             <span className="glass-btn nt-action-icon">{a.icon}</span>
             <span>{a.label}</span>
           </button>
@@ -155,6 +198,11 @@ export function NutritionScreen() {
           file={photo.file}
           date={key}
           meal={photo.meal}
+          pickProduct={(add) => setSheet({ kind: 'search', meal: photo.meal, pick: add })}
+          onManual={() => {
+            setSheet({ kind: 'manual', meal: photo.meal });
+            setPhoto(null);
+          }}
           onClose={() => {
             setOpen((s) => new Set(s).add(photo.meal));
             setPhoto(null);
@@ -203,6 +251,15 @@ export function NutritionScreen() {
               {itemMenu.grams} г · {Math.round(itemMenu.kcal)} ккал
             </p>
             <button
+              className="btn block"
+              onClick={() => {
+                setSheet({ kind: 'edit', entry: itemMenu });
+                setItemMenu(null);
+              }}
+            >
+              Изменить граммы
+            </button>
+            <button
               className="btn block nt-danger"
               onClick={async () => {
                 if (itemMenu.id !== undefined) await deleteEntry(itemMenu.id);
@@ -213,6 +270,51 @@ export function NutritionScreen() {
             </button>
           </div>
         </div>
+      )}
+      {sheet?.kind === 'search' && (
+        <SearchSheet
+          onPick={(food) => setSheet({ kind: 'grams', food, meal: sheet.meal, pick: sheet.pick })}
+          onManual={() => setSheet({ kind: 'manual', meal: sheet.meal, pick: sheet.pick })}
+          onClose={() => setSheet(null)}
+        />
+      )}
+      {sheet?.kind === 'grams' && (
+        <GramsSheet food={sheet.food} meal={sheet.pick ? undefined : sheet.meal} onSave={(g, m) => commit(sheet.food, g, m, sheet.pick)} onClose={() => setSheet(null)} />
+      )}
+      {sheet?.kind === 'manual' && (
+        <ManualSheet
+          barcode={sheet.barcode}
+          note={sheet.note}
+          meal={sheet.pick ? undefined : sheet.meal}
+          onSave={(food, g, m) => commit(food, g, m, sheet.pick)}
+          onClose={() => setSheet(null)}
+        />
+      )}
+      {sheet?.kind === 'scan' && !looking && <Scanner onCode={(code) => void lookup(code, sheet.meal)} onClose={() => setSheet(null)} />}
+      {looking && <div className="dialog-backdrop nt-sheet-back nt-looking">Ищу продукт…</div>}
+      {sheet?.kind === 'edit' && (
+        <GramsSheet
+          food={{ name: sheet.entry.name, per100: sheet.entry.per100, source: 'manual' }}
+          grams={sheet.entry.grams}
+          onSave={async (g) => {
+            if (sheet.entry.id !== undefined) await setEntryGrams(sheet.entry.id, g);
+            setSheet(null);
+          }}
+          onClose={() => setSheet(null)}
+        />
+      )}
+      {sheet?.kind === 'history' && (
+        <HistorySheet
+          onPick={(d) => {
+            const [y, mo, dd] = d.split('-').map(Number);
+            setDate(new Date(y, mo - 1, dd));
+            setSheet(null);
+          }}
+          onClose={() => setSheet(null)}
+        />
+      )}
+      {sheet?.kind === 'targets' && (
+        <TargetsSheet auto={resolveTargets(null, profile, body, Date.now())} saved={saved ?? null} onClose={() => setSheet(null)} />
       )}
     </div>
   );

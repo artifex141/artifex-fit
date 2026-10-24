@@ -4,13 +4,11 @@ import { addEntries, upsertFood } from '../../db/nutrition';
 import { MEAL_LABEL, scale, sumMacros, type Meal } from '../../nutrition/calc';
 import { recognizePhoto, resizeImage, type ReviewItem } from '../../nutrition/photo';
 import { ChevronIcon } from '../kit';
-import { fmt } from './Summary';
+import { macroLine } from './Summary';
 import { MinusIcon, PlusIcon } from './icons';
 import './photo-review.css';
 
 type Stage = { kind: 'hint' } | { kind: 'loading' } | { kind: 'error'; text: string } | { kind: 'review'; dish: string };
-
-const macroLine = (m: { kcal: number; p: number; f: number; c: number }) => `${fmt(m.kcal)} ккал · Б ${fmt(m.p)} · Ж ${fmt(m.f)} · У ${fmt(m.c)}`;
 
 export function PhotoReview({
   file,

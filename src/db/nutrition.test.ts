@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, expect, test } from 'vitest';
 import { db } from './db';
-import { addEntries, daysWithEntries, deleteEntry, entriesOn, getTargets, recentFoods, saveTargets, setEntryGrams, upsertFood } from './nutrition';
+import { addEntries, clearTargets, daysWithEntries, deleteEntry, entriesOn, getTargets, recentFoods, saveTargets, setEntryGrams, upsertFood } from './nutrition';
 import { exportAll, importAll } from './repo';
 
 const OATS = { kcal: 350, p: 12, f: 1.5, c: 72 };
@@ -53,6 +53,8 @@ test('норма: нет — null; сохраняется', async () => {
   expect(await getTargets()).toBeNull();
   await saveTargets({ kcal: 2400, p: 180, f: 80, c: 300, manual: true });
   expect(await getTargets()).toEqual({ kcal: 2400, p: 180, f: 80, c: 300, manual: true });
+  await clearTargets();
+  expect(await getTargets()).toBeNull();
 });
 
 test('резервная копия включает продукты и записи питания', async () => {

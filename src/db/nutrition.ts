@@ -59,3 +59,8 @@ export async function getTargets(): Promise<Targets | null> {
 export async function saveTargets(t: Targets): Promise<void> {
   await db.settings.put({ key: 'nutritionTargets', value: t });
 }
+
+/** Вернуться к расчётной норме. */
+export async function clearTargets(): Promise<void> {
+  await db.settings.delete('nutritionTargets');
+}

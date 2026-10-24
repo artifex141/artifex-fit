@@ -4,6 +4,7 @@ import type { Macros } from '../../nutrition/calc';
 import { DropIcon, FlameIcon, ProteinIcon, WheatIcon } from './icons';
 
 export const fmt = (n: number) => Math.round(n).toLocaleString('ru-RU');
+export const macroLine = (m: Macros) => `${fmt(m.kcal)} ккал · Б ${fmt(m.p)} · Ж ${fmt(m.f)} · У ${fmt(m.c)}`;
 const frac = (v: number, of: number | undefined) => (of ? Math.min(1, v / of) : 0);
 
 function KcalRing({ eaten, target }: { eaten: number; target: number | undefined }) {
