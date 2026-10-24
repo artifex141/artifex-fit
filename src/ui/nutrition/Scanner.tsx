@@ -1,7 +1,7 @@
 // Сканер штрихкодов: задняя камера, распознавание каждые 300 мс (zxing-wasm — в Safari нет BarcodeDetector).
 import { useEffect, useRef, useState } from 'react';
 import wasmUrl from 'zxing-wasm/reader/zxing_reader.wasm?url';
-import { ChevronIcon } from '../kit';
+import { ChevronIcon, Overlay } from '../kit';
 
 export function Scanner({ onCode, onClose }: { onCode: (code: string) => void; onClose: () => void }) {
   const video = useRef<HTMLVideoElement>(null);
@@ -50,24 +50,26 @@ export function Scanner({ onCode, onClose }: { onCode: (code: string) => void; o
 
   const code = typed.replace(/\D/g, '');
   return (
-    <div className="sc">
-      <video ref={video} className="sc-video" playsInline muted autoPlay />
-      <div className="sc-frame" aria-hidden="true" />
-      <header className="sc-head">
-        <button className="glass-btn sc-back" aria-label="Закрыть" onClick={onClose}>
-          <ChevronIcon dir="left" />
-        </button>
-        <span>Наведи камеру на штрихкод</span>
-      </header>
-      <div className="sc-bottom">
-        {error && <p className="sc-error">{error}</p>}
-        <div className="row">
-          <input className="field" aria-label="Штрихкод" inputMode="numeric" placeholder="Или введи цифры кода" value={typed} onChange={(e) => setTyped(e.target.value)} />
-          <button className="btn primary" disabled={code.length < 6 || code.length > 14} onClick={() => onCode(code)}>
-            Найти
+    <Overlay>
+      <div className="sc">
+        <video ref={video} className="sc-video" playsInline muted autoPlay />
+        <div className="sc-frame" aria-hidden="true" />
+        <header className="sc-head">
+          <button className="glass-btn sc-back" aria-label="Закрыть" onClick={onClose}>
+            <ChevronIcon dir="left" />
           </button>
+          <span>Наведи камеру на штрихкод</span>
+        </header>
+        <div className="sc-bottom">
+          {error && <p className="sc-error">{error}</p>}
+          <div className="row">
+            <input className="field" aria-label="Штрихкод" inputMode="numeric" placeholder="Или введи цифры кода" value={typed} onChange={(e) => setTyped(e.target.value)} />
+            <button className="btn primary" disabled={code.length < 6 || code.length > 14} onClick={() => onCode(code)}>
+              Найти
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </Overlay>
   );
 }

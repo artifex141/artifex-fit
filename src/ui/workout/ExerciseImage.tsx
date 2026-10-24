@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { ExerciseImage as Img } from '../../program/types';
-import { ChevronIcon } from '../kit';
+import { ChevronIcon, Overlay } from '../kit';
 
 const url = (src: string) => `${import.meta.env.BASE_URL}${src}`;
 const LABELS = ['Старт', 'Подъём', 'Опускание'];
@@ -25,44 +25,46 @@ function Viewer({ image, name, start, onClose }: { image: Img; name: string; sta
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
   return (
-    <div
-      className="viewer"
-      onClick={onClose}
-      onTouchStart={(e) => setTouchX(e.touches[0].clientX)}
-      onTouchEnd={(e) => {
-        if (touchX === null) return;
-        const dx = e.changedTouches[0].clientX - touchX;
-        if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1);
-        setTouchX(null);
-      }}
-    >
-      <div className="viewer-top" onClick={(e) => e.stopPropagation()}>
-        <span className="viewer-title">{name}</span>
-        <button className="glass-btn" style={{ width: 40, height: 40 }} aria-label="Закрыть" onClick={onClose}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
-            <path d="M6 6l12 12M18 6L6 18" />
-          </svg>
-        </button>
+    <Overlay>
+      <div
+        className="viewer"
+        onClick={onClose}
+        onTouchStart={(e) => setTouchX(e.touches[0].clientX)}
+        onTouchEnd={(e) => {
+          if (touchX === null) return;
+          const dx = e.changedTouches[0].clientX - touchX;
+          if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1);
+          setTouchX(null);
+        }}
+      >
+        <div className="viewer-top" onClick={(e) => e.stopPropagation()}>
+          <span className="viewer-title">{name}</span>
+          <button className="glass-btn" style={{ width: 40, height: 40 }} aria-label="Закрыть" onClick={onClose}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        </div>
+        <div className="viewer-frame" onClick={(e) => e.stopPropagation()}>
+          <Frame image={image} i={i} className="viewer-img" />
+          <span className="frame-n big">{i + 1}</span>
+          <span className="frame-label big">{LABELS[i]}</span>
+        </div>
+        <div className="viewer-nav" onClick={(e) => e.stopPropagation()}>
+          <button className="glass-btn" style={{ width: 48, height: 48 }} aria-label="Предыдущий кадр" onClick={() => go(-1)}>
+            <ChevronIcon dir="left" />
+          </button>
+          <span className="viewer-dots">
+            {[0, 1, 2].map((k) => (
+              <span key={k} className={k === i ? 'on' : ''} />
+            ))}
+          </span>
+          <button className="glass-btn" style={{ width: 48, height: 48 }} aria-label="Следующий кадр" onClick={() => go(1)}>
+            <ChevronIcon dir="right" />
+          </button>
+        </div>
       </div>
-      <div className="viewer-frame" onClick={(e) => e.stopPropagation()}>
-        <Frame image={image} i={i} className="viewer-img" />
-        <span className="frame-n big">{i + 1}</span>
-        <span className="frame-label big">{LABELS[i]}</span>
-      </div>
-      <div className="viewer-nav" onClick={(e) => e.stopPropagation()}>
-        <button className="glass-btn" style={{ width: 48, height: 48 }} aria-label="Предыдущий кадр" onClick={() => go(-1)}>
-          <ChevronIcon dir="left" />
-        </button>
-        <span className="viewer-dots">
-          {[0, 1, 2].map((k) => (
-            <span key={k} className={k === i ? 'on' : ''} />
-          ))}
-        </span>
-        <button className="glass-btn" style={{ width: 48, height: 48 }} aria-label="Следующий кадр" onClick={() => go(1)}>
-          <ChevronIcon dir="right" />
-        </button>
-      </div>
-    </div>
+    </Overlay>
   );
 }
 

@@ -52,3 +52,9 @@ const pad = (n: number) => String(n).padStart(2, '0');
 export function dayKey(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
+
+/** Среднее ккал за день по дням с записями в [from, to) (ключи 'YYYY-MM-DD'); нет записей — 0. */
+export function avgKcalPerDay(days: { date: string; kcal: number }[], from: string, to: string): number {
+  const inside = days.filter((d) => d.date >= from && d.date < to);
+  return inside.length ? Math.round(inside.reduce((s, d) => s + d.kcal, 0) / inside.length) : 0;
+}

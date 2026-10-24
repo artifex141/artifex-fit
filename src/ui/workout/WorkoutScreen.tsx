@@ -20,6 +20,7 @@ import { dayInfo } from '../../program/schedule';
 import { summary as statsSummary } from '../../program/stats';
 import type { DayType } from '../../program/types';
 import { targetFor } from '../../program/weights';
+import { Overlay } from '../kit';
 import { useNow } from '../useNow';
 import { ExerciseCard, ExerciseRow } from './ExerciseCard';
 import { useRestTimer } from './RestTimer';
@@ -48,11 +49,13 @@ function Clock({ since }: { since: number | null }) {
 
 function SheetView({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
-    <div className="dialog-backdrop" onClick={onClose}>
-      <div className="dialog card stack" onClick={(e) => e.stopPropagation()}>
-        {children}
+    <Overlay>
+      <div className="dialog-backdrop" onClick={onClose}>
+        <div className="dialog card stack" onClick={(e) => e.stopPropagation()}>
+          {children}
+        </div>
       </div>
-    </div>
+    </Overlay>
   );
 }
 

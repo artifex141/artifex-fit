@@ -2,9 +2,13 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useState } from 'react';
 import { cachedBody, inLb, loadBody, metric, type BodyData } from '../../body/body';
 import { db } from '../../db/db';
-import { getProfile, saveProfile } from '../../db/repo';
+import { entriesOn, getTargets } from '../../db/nutrition';
+import { getCycleConfig, getPosition, getProfile, saveProfile } from '../../db/repo';
+import { dayKey, sumMacros } from '../../nutrition/calc';
+import { resolveTargets } from '../../nutrition/targets';
+import { cycleProgress, nutritionScore, strengthVsPlan } from '../../profile/metrics';
 import { achievements, ageFrom, DEFAULT_PROFILE, formatHeight, GOAL_LABEL, goalProgress, type ProfileInfo } from '../../profile/profile';
-import { ChevronIcon } from '../kit';
+import { ChevronIcon, Overlay } from '../kit';
 import { CharacterView } from './CharacterView';
 import { SettingsScreen } from './SettingsScreen';
 import './profile.css';
@@ -31,15 +35,16 @@ const I = {
   target: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 12l7-7M16 5h3v3',
 };
 
-// Демо: шкалы состояния и метрики Apple Watch — пока нет источника данных (см. src/ui/demo.ts).
-const STATE: { icon: string; label: string; score: number }[] = [
-  { icon: I.dumbbell, label: 'Сила', score: 7 },
-  { icon: I.heart, label: 'Выносливость', score: 6 },
-  { icon: I.run, label: 'Подвижность', score: 6 },
-  { icon: I.moon, label: 'Восстановление', score: 7 },
-  { icon: I.apple, label: 'Питание', score: 6 },
-  { icon: I.bars, label: 'Общий прогресс', score: 6 },
-];
+type Metric = { icon: string; label: string; text: string; frac: number };
+// Демо: выносливость, подвижность, восстановление и метрики Apple Watch — пока нет источника данных (см. src/ui/demo.ts).
+const demo = (icon: string, label: string, score: number): Metric => ({ icon, label, text: `${score}/10`, frac: score / 10 });
+
+/** Сила: «+3%» — рабочие подходы цикла сильнее плана; полоса — середина = ровно по плану, края = ±20 %. */
+function strengthMetric(s: { pct: number } | null | undefined): Metric {
+  if (!s) return { icon: I.dumbbell, label: 'Сила', text: '—', frac: 0 };
+  const sign = s.pct > 0 ? '+' : s.pct < 0 ? '−' : '';
+  return { icon: I.dumbbell, label: 'Сила', text: `${sign}${Math.abs(s.pct)}%`, frac: Math.min(1, Math.max(0, 0.5 + s.pct / 40)) };
+}
 
 function Gauge({ frac }: { frac: number }) {
   const R = 44;
@@ -83,48 +88,50 @@ function EditSheet({ profile, onClose }: { profile: ProfileInfo; onClose: () => 
     onClose();
   };
   return (
-    <div className="dialog-backdrop" onClick={onClose}>
-      <div className="dialog card stack" onClick={(e) => e.stopPropagation()}>
-        <h2 className="card-title">Профиль</h2>
-        <label className="pf-field">
-          <span>Имя</span>
-          <input className="field" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
-        </label>
-        <div className="row">
-          <label className="pf-field grow">
-            <span>Год рождения</span>
-            <input className="field" inputMode="numeric" value={f.birthYear} onChange={(e) => setF({ ...f, birthYear: e.target.value })} />
+    <Overlay>
+      <div className="dialog-backdrop" onClick={onClose}>
+        <div className="dialog card stack" onClick={(e) => e.stopPropagation()}>
+          <h2 className="card-title">Профиль</h2>
+          <label className="pf-field">
+            <span>Имя</span>
+            <input className="field" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
           </label>
-          <label className="pf-field grow">
-            <span>Рост, ft</span>
-            <input className="field" inputMode="numeric" value={f.ft} onChange={(e) => setF({ ...f, ft: e.target.value })} />
-          </label>
-          <label className="pf-field grow">
-            <span>in</span>
-            <input className="field" inputMode="decimal" value={f.inch} onChange={(e) => setF({ ...f, inch: e.target.value })} />
-          </label>
+          <div className="row">
+            <label className="pf-field grow">
+              <span>Год рождения</span>
+              <input className="field" inputMode="numeric" value={f.birthYear} onChange={(e) => setF({ ...f, birthYear: e.target.value })} />
+            </label>
+            <label className="pf-field grow">
+              <span>Рост, ft</span>
+              <input className="field" inputMode="numeric" value={f.ft} onChange={(e) => setF({ ...f, ft: e.target.value })} />
+            </label>
+            <label className="pf-field grow">
+              <span>in</span>
+              <input className="field" inputMode="decimal" value={f.inch} onChange={(e) => setF({ ...f, inch: e.target.value })} />
+            </label>
+          </div>
+          <div className="row">
+            <label className="pf-field grow2">
+              <span>Цель</span>
+              <select className="field" value={f.goal} onChange={(e) => setF({ ...f, goal: e.target.value as ProfileInfo['goal'] })}>
+                {Object.entries(GOAL_LABEL).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="pf-field grow">
+              <span>Целевой вес, lb</span>
+              <input className="field" inputMode="decimal" value={f.goalWeightLb} onChange={(e) => setF({ ...f, goalWeightLb: e.target.value })} />
+            </label>
+          </div>
+          <button className="btn primary block" onClick={save}>
+            Сохранить
+          </button>
         </div>
-        <div className="row">
-          <label className="pf-field grow2">
-            <span>Цель</span>
-            <select className="field" value={f.goal} onChange={(e) => setF({ ...f, goal: e.target.value as ProfileInfo['goal'] })}>
-              {Object.entries(GOAL_LABEL).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="pf-field grow">
-            <span>Целевой вес, lb</span>
-            <input className="field" inputMode="decimal" value={f.goalWeightLb} onChange={(e) => setF({ ...f, goalWeightLb: e.target.value })} />
-          </label>
-        </div>
-        <button className="btn primary block" onClick={save}>
-          Сохранить
-        </button>
       </div>
-    </div>
+    </Overlay>
   );
 }
 
@@ -137,6 +144,15 @@ export function ProfileScreen({ onNewCycle }: { onNewCycle: (cycle: number) => v
   useEffect(() => {
     void loadBody().then(setBody);
   }, []);
+  const position = useLiveQuery(getPosition);
+  const strength = useLiveQuery(async () => {
+    const pos = await getPosition();
+    const cfg = await getCycleConfig(pos.cycle);
+    const sets = (await db.sets.toArray()).filter((x) => x.cycle === pos.cycle);
+    return strengthVsPlan(sets, () => cfg);
+  });
+  const eaten = useLiveQuery(async () => sumMacros(await entriesOn(dayKey(new Date()))).kcal);
+  const savedTargets = useLiveQuery(getTargets);
 
   if (settings) return <SettingsScreen onNewCycle={onNewCycle} onClose={() => setSettings(false)} />;
 
@@ -147,6 +163,16 @@ export function ProfileScreen({ onNewCycle }: { onNewCycle: (cycle: number) => v
   const info = [profile.birthYear ? `${ageFrom(profile.birthYear, now)} лет` : null, profile.heightCm ? formatHeight(profile.heightCm) : null, weight ? `${weight.value} lb` : null].filter(Boolean);
   const goal = profile.goalWeightLb ? goalProgress(weight?.value ?? null, profile.goalWeightLb) : null;
   const ach = achievements(workouts, body, now);
+  const food = nutritionScore(eaten ?? 0, resolveTargets(savedTargets ?? null, profile, body, now)?.kcal ?? null);
+  const cycle = position ? cycleProgress(position) : null;
+  const metrics: Metric[] = [
+    strengthMetric(strength),
+    demo(I.heart, 'Выносливость', 6),
+    demo(I.run, 'Подвижность', 6),
+    demo(I.moon, 'Восстановление', 7),
+    { icon: I.apple, label: 'Питание', text: food.text, frac: food.frac },
+    { icon: I.bars, label: 'Прогресс', text: cycle ? `${cycle.done}/${cycle.total}` : '—', frac: cycle ? cycle.done / cycle.total : 0 },
+  ];
 
   const bodyRows = [
     { icon: I.bars, value: fat ? `${fat.value}%` : '--%', label: 'Жир', delta: fat?.delta != null ? `${sign(fat.delta)}%` : null, up: (fat?.delta ?? 0) > 0 },
@@ -226,7 +252,7 @@ export function ProfileScreen({ onNewCycle }: { onNewCycle: (cycle: number) => v
 
         <section className="pf-card pf-state">
           <div className="pf-card-head">
-            <b>Текущее состояние</b>
+            <b>Метрики</b>
             <span className="glass-btn pf-dots">
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <circle cx="6" cy="12" r="1.7" />
@@ -235,18 +261,18 @@ export function ProfileScreen({ onNewCycle }: { onNewCycle: (cycle: number) => v
               </svg>
             </span>
           </div>
-          {STATE.map((s) => (
-            <div key={s.label} className="pf-state-row">
+          {metrics.map((s) => (
+            <div key={s.label} className="pf-state-row" data-testid={`metric-${s.label}`}>
               <span className="pf-round">
                 <Icon d={s.icon} />
               </span>
               <span className="pf-state-main">
                 <span className="pf-state-label">
                   <span>{s.label}</span>
-                  <span className="muted">{s.score}/10</span>
+                  <span className="muted">{s.text}</span>
                 </span>
                 <span className="pf-bar thin">
-                  <span style={{ width: `${s.score * 10}%` }} />
+                  <span style={{ width: `${s.frac * 100}%` }} />
                 </span>
               </span>
             </div>

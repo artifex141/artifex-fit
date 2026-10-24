@@ -94,3 +94,14 @@ test('сканер без камеры: подсказка и ввод кода 
   fireEvent.click(screen.getByRole('button', { name: 'Найти' }));
   expect(onCode).toHaveBeenCalledWith('4600000000001');
 });
+
+test('лист открывается поверх всего приложения (в body), а не внутри прокрутки под меню', () => {
+  const { getByTestId } = render(
+    <main data-testid="scroll">
+      <GramsSheet food={{ name: 'Овсянка', per100: OATS, source: 'off' }} onSave={() => {}} onClose={() => {}} />
+    </main>,
+  );
+  const dialog = screen.getByRole('dialog', { name: 'Овсянка' });
+  expect(getByTestId('scroll')).not.toContainElement(dialog);
+  expect(dialog.closest('.dialog-backdrop')?.parentElement).toBe(document.body);
+});

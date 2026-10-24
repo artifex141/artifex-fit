@@ -5,8 +5,9 @@
 /* Шапка */
 .pf-title { position: absolute; left: 5rem; top: 4.4rem; margin: 0; z-index: 3; font-size: 6rem; font-weight: 700; letter-spacing: -0.1rem; }
 .pf-edit {
-  position: absolute; left: 59rem; top: 5.2rem; z-index: 3; height: 6.6rem; width: 22.8rem;
-  display: flex; align-items: center; gap: 1.6rem; padding: 0 2.4rem; border-radius: 3.3rem; font-size: 2.4rem; color: var(--text);
+  /* Ширина по тексту (на iPhone шрифт шире), правый край — у кнопки «…» (x 810 макета). */
+  position: absolute; right: 13.1rem; top: 5.2rem; z-index: 3; height: 6.6rem; min-width: 22.8rem; white-space: nowrap;
+  display: flex; align-items: center; gap: 1.6rem; padding: 0 2.6rem 0 2.4rem; border-radius: 3.3rem; font-size: 2.4rem; color: var(--text);
   background: linear-gradient(180deg, rgba(30, 38, 46, 0.92), rgba(18, 24, 30, 0.92)); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow);
 }
 .pf-edit-icon svg { width: 3.4rem; height: 3.4rem; color: var(--accent); }

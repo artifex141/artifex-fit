@@ -2,6 +2,8 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useState } from 'react';
 import { cachedBody, inLb, KG_TO_LB, loadBody, metric, type BodyData } from '../../body/body';
 import { db } from '../../db/db';
+import { daysWithEntries } from '../../db/nutrition';
+import { avgKcalPerDay, dayKey } from '../../nutrition/calc';
 import { EXERCISES } from '../../program/exercises';
 import { change, periodStart, summary, weightSeries, type Period } from '../../program/stats';
 import { demoBodyWeight, demoDaily } from '../demo';
@@ -86,6 +88,7 @@ export function ProgressScreen() {
   const [period, setPeriod] = useState<Period>('week');
   const workouts = useLiveQuery(() => db.workouts.toArray(), [], []);
   const sets = useLiveQuery(() => db.sets.toArray(), [], []);
+  const foodDays = useLiveQuery(daysWithEntries, [], []);
   const [picked, setPicked] = useState<string>('');
   const [bodyData, setBodyData] = useState<BodyData>(cachedBody);
   useEffect(() => {
@@ -99,6 +102,10 @@ export function ProgressScreen() {
   const p = summary(workouts, sets, prevFrom, from);
   const caption = PERIODS.find((x) => x.id === period)!.caption;
   const countDelta = change(s.count, p.count).abs;
+  // Калории — из дневника питания: в среднем за день по дням с записями.
+  const key = (t: number) => dayKey(new Date(t));
+  const kcal = avgKcalPerDay(foodDays, key(from), key(now + DAY));
+  const kcalPrev = avgKcalPerDay(foodDays, key(prevFrom), key(from));
 
   // Вес и жир — из Zepp Life (через Health и «Команды»), если пришли; иначе демо.
   const weight = inLb(metric(bodyData.weight, now));
@@ -150,7 +157,7 @@ export function ProgressScreen() {
           delta={countDelta ? <>{countDelta > 0 ? '+' : ''}{countDelta} <Up up={countDelta > 0} /></> : undefined}
           caption={caption}
         />
-        <Tile icon={I.flame} label="Калории" value="2 450" delta={<>+12% <Up up /></>} caption="в среднем / день" />
+        <Tile icon={I.flame} label="Калории" value={kcal ? fmtNum(kcal) : '—'} delta={kcal ? pctDelta(kcal, kcalPrev) : undefined} caption="в среднем / день" />
         <Tile
           icon={I.timer}
           label="Время"

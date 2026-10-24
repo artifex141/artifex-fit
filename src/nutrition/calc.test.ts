@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { autoTargets, dayKey, mealByTime, scale, sumMacros } from './calc';
+import { autoTargets, avgKcalPerDay, dayKey, mealByTime, scale, sumMacros } from './calc';
 
 test('пересчёт КБЖУ на порцию', () => {
   expect(scale({ kcal: 350, p: 12, f: 1.5, c: 72 }, 150)).toEqual({ kcal: 525, p: 18, f: 2.3, c: 108 });
@@ -29,4 +29,15 @@ test('норма по Миффлину: набор, снижение, подде
 test('ключ дня по местному времени', () => {
   expect(dayKey(new Date(2026, 9, 23, 23, 30))).toBe('2026-10-23');
   expect(dayKey(new Date(2026, 0, 5, 0, 5))).toBe('2026-01-05');
+});
+
+test('калории в среднем за день — по дням с записями внутри периода', () => {
+  const days = [
+    { date: '2026-10-23', kcal: 2000 },
+    { date: '2026-10-21', kcal: 2600 },
+    { date: '2026-10-12', kcal: 1000 },
+  ];
+  expect(avgKcalPerDay(days, '2026-10-20', '2026-10-27')).toBe(2300);
+  expect(avgKcalPerDay(days, '2026-10-13', '2026-10-20')).toBe(0);
+  expect(avgKcalPerDay(days, '2026-10-12', '2026-10-13')).toBe(1000);
 });

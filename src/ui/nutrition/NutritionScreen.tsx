@@ -1,13 +1,14 @@
 // Экран «Питание» — 1:1 с макетом (941 px): шапка с датой, сводка, плитки, приёмы пищи, нижняя панель.
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { cachedBody, inLb, loadBody, metric, type BodyData } from '../../body/body';
+import { cachedBody, loadBody, type BodyData } from '../../body/body';
 import { db } from '../../db/db';
 import { addEntries, deleteEntry, entriesOn, foodByBarcode, getTargets, setEntryGrams, upsertFood, type EntryRow } from '../../db/nutrition';
 import { getProfile } from '../../db/repo';
-import { autoTargets, dayKey, mealByTime, MEALS, sumMacros, type Meal, type Targets } from '../../nutrition/calc';
-import { ageFrom, DEFAULT_PROFILE, type ProfileInfo } from '../../profile/profile';
-import { ChevronIcon } from '../kit';
+import { dayKey, mealByTime, MEALS, sumMacros, type Meal } from '../../nutrition/calc';
+import { resolveTargets } from '../../nutrition/targets';
+import { DEFAULT_PROFILE } from '../../profile/profile';
+import { ChevronIcon, Overlay } from '../kit';
 import { useNow } from '../useNow';
 import { fetchBarcode } from '../../nutrition/foodApi';
 import type { ReviewItem } from '../../nutrition/photo';
@@ -36,13 +37,6 @@ type SheetState =
   | { kind: 'history' }
   | { kind: 'targets' };
 
-/** Норма: сохранённая; иначе расчёт из профиля и последнего веса; без данных — null. */
-export function resolveTargets(saved: Targets | null, profile: ProfileInfo, body: BodyData, now: number): Targets | null {
-  if (saved) return saved;
-  const weight = inLb(metric(body.weight, now));
-  if (!weight || !profile.birthYear || !profile.heightCm) return null;
-  return autoTargets({ weightLb: weight.value, heightCm: profile.heightCm, age: ageFrom(profile.birthYear, now), goal: profile.goal });
-}
 
 function dateLabel(key: string, now: number) {
   if (key === dayKey(new Date(now))) return 'Сегодня';
@@ -221,65 +215,69 @@ export function NutritionScreen() {
       )}
 
       {dateMenu && (
-        <div className="dialog-backdrop" onClick={() => setDateMenu(false)}>
-          <div className="dialog card stack nt-sheet" onClick={(e) => e.stopPropagation()}>
-            <h2 className="card-title">День</h2>
-            {[0, 1].map((back) => (
-              <button
-                key={back}
-                className="btn block"
-                onClick={() => {
-                  setDay(dayKey(new Date(Date.now() - back * DAY)));
-                  setDateMenu(false);
-                }}
-              >
-                {back === 0 ? 'Сегодня' : 'Вчера'}
-              </button>
-            ))}
-            <label className="btn block nt-pick">
-              Выбрать дату
-              <input
-                type="date"
-                max={dayKey(new Date())}
-                value={key}
-                onChange={(e) => {
-                  const [y, mo, d] = e.target.value.split('-').map(Number);
-                  if (y && mo && d) setDay(dayKey(new Date(y, mo - 1, d)));
-                  setDateMenu(false);
-                }}
-              />
-            </label>
+        <Overlay>
+          <div className="dialog-backdrop" onClick={() => setDateMenu(false)}>
+            <div className="dialog card stack nt-sheet" onClick={(e) => e.stopPropagation()}>
+              <h2 className="card-title">День</h2>
+              {[0, 1].map((back) => (
+                <button
+                  key={back}
+                  className="btn block"
+                  onClick={() => {
+                    setDay(dayKey(new Date(Date.now() - back * DAY)));
+                    setDateMenu(false);
+                  }}
+                >
+                  {back === 0 ? 'Сегодня' : 'Вчера'}
+                </button>
+              ))}
+              <label className="btn block nt-pick">
+                Выбрать дату
+                <input
+                  type="date"
+                  max={dayKey(new Date())}
+                  value={key}
+                  onChange={(e) => {
+                    const [y, mo, d] = e.target.value.split('-').map(Number);
+                    if (y && mo && d) setDay(dayKey(new Date(y, mo - 1, d)));
+                    setDateMenu(false);
+                  }}
+                />
+              </label>
+            </div>
           </div>
-        </div>
+        </Overlay>
       )}
 
       {itemMenu && (
-        <div className="dialog-backdrop" onClick={() => setItemMenu(null)}>
-          <div className="dialog card stack nt-sheet" onClick={(e) => e.stopPropagation()}>
-            <h2 className="card-title">{itemMenu.name}</h2>
-            <p className="muted nt-sheet-sub">
-              {itemMenu.grams} г · {Math.round(itemMenu.kcal)} ккал
-            </p>
-            <button
-              className="btn block"
-              onClick={() => {
-                setSheet({ kind: 'edit', entry: itemMenu });
-                setItemMenu(null);
-              }}
-            >
-              Изменить граммы
-            </button>
-            <button
-              className="btn block nt-danger"
-              onClick={async () => {
-                if (itemMenu.id !== undefined) await deleteEntry(itemMenu.id);
-                setItemMenu(null);
-              }}
-            >
-              Удалить
-            </button>
+        <Overlay>
+          <div className="dialog-backdrop" onClick={() => setItemMenu(null)}>
+            <div className="dialog card stack nt-sheet" onClick={(e) => e.stopPropagation()}>
+              <h2 className="card-title">{itemMenu.name}</h2>
+              <p className="muted nt-sheet-sub">
+                {itemMenu.grams} г · {Math.round(itemMenu.kcal)} ккал
+              </p>
+              <button
+                className="btn block"
+                onClick={() => {
+                  setSheet({ kind: 'edit', entry: itemMenu });
+                  setItemMenu(null);
+                }}
+              >
+                Изменить граммы
+              </button>
+              <button
+                className="btn block nt-danger"
+                onClick={async () => {
+                  if (itemMenu.id !== undefined) await deleteEntry(itemMenu.id);
+                  setItemMenu(null);
+                }}
+              >
+                Удалить
+              </button>
+            </div>
           </div>
-        </div>
+        </Overlay>
       )}
       {sheet?.kind === 'search' && (
         <SearchSheet
@@ -301,7 +299,11 @@ export function NutritionScreen() {
         />
       )}
       {sheet?.kind === 'scan' && !looking && <Scanner onCode={(code) => void lookup(code, sheet.meal)} onClose={() => setSheet(null)} />}
-      {looking && <div className="dialog-backdrop nt-sheet-back nt-looking">Ищу продукт…</div>}
+      {looking && (
+        <Overlay>
+          <div className="dialog-backdrop nt-sheet-back nt-looking">Ищу продукт…</div>
+        </Overlay>
+      )}
       {sheet?.kind === 'edit' && (
         <GramsSheet
           food={{ name: sheet.entry.name, per100: sheet.entry.per100, source: 'manual' }}

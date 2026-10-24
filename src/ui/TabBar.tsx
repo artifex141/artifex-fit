@@ -26,8 +26,12 @@ const TABS: { id: Tab; label: string; icon: JSX.Element }[] = [
     label: 'Питание',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 7c-1.5-1.5-6-2-7 2.5S7 20 9.5 20c1 0 1.5-.5 2.5-.5s1.5.5 2.5.5C17 20 20 14 19 9.5S13.5 5.5 12 7z" />
-        <path d="M12 7c0-2 1-3.5 3-4" />
+        {/* Куриная ножка: мясо сверху справа, косточка с двумя шариками снизу слева */}
+        <path d="M9 15.2C7.6 11.6 8.6 6.6 12.1 4.3c3.5-2.3 8.4-.9 9 3.5.6 4.5-3.8 8.2-8.8 8.4-1.4.1-2.6-.2-3.3-1z" />
+        <path d="M13.2 6.6c1.3-.7 3-.6 4 .3" />
+        <path d="M9 15.2l-3.4 3.4" />
+        <circle cx="4.3" cy="18.1" r="1.5" fill="currentColor" stroke="none" />
+        <circle cx="6.1" cy="19.9" r="1.5" fill="currentColor" stroke="none" />
       </svg>
     ),
   },

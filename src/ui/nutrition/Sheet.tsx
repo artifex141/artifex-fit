@@ -1,6 +1,7 @@
 // Нижний лист «Питания»: поверх экрана проверки фото, прокручивается, если не помещается.
 import type { ReactNode } from 'react';
 import { MEAL_LABEL, MEALS, type Meal, type Per100 } from '../../nutrition/calc';
+import { Overlay } from '../kit';
 
 /** Продукт, выбранный для записи: из поиска/штрихкода, вручную или из распознавания. */
 export interface FoodPick {
@@ -14,17 +15,19 @@ export interface FoodPick {
 
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   return (
-    <div className="dialog-backdrop nt-sheet-back" onClick={onClose}>
-      <div className="dialog card stack nt-sheet" role="dialog" aria-label={title} onClick={(e) => e.stopPropagation()}>
-        <div className="nt-sheet-head">
-          <h2 className="card-title">{title}</h2>
-          <button className="nt-sheet-x" aria-label="Закрыть" onClick={onClose}>
-            ×
-          </button>
+    <Overlay>
+      <div className="dialog-backdrop nt-sheet-back" onClick={onClose}>
+        <div className="dialog card stack nt-sheet" role="dialog" aria-label={title} onClick={(e) => e.stopPropagation()}>
+          <div className="nt-sheet-head">
+            <h2 className="card-title">{title}</h2>
+            <button className="nt-sheet-x" aria-label="Закрыть" onClick={onClose}>
+              ×
+            </button>
+          </div>
+          {children}
         </div>
-        {children}
       </div>
-    </div>
+    </Overlay>
   );
 }
 

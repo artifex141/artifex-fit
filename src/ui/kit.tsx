@@ -1,5 +1,6 @@
 // Общие элементы макета: номер в круге с жёлтой дугой подсветки, стеклянная круглая кнопка.
 import { useId, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 /** Номер в тёмном круге. active — жёлтая светящаяся дуга слева, как «1» и «2» на макете. */
 export function NumRing({ n, active, size = 40 }: { n: ReactNode; active?: boolean; size?: number }) {
@@ -25,6 +26,14 @@ export function NumRing({ n, active, size = 40 }: { n: ReactNode; active?: boole
       <span className="num-ring-n">{n}</span>
     </span>
   );
+}
+
+/**
+ * Окно поверх всего приложения. Рендерится прямо в body: на iPhone прокручиваемый <main> создаёт свой слой,
+ * и fixed-окна внутри него оказываются под нижним меню, какой бы z-index у них ни был.
+ */
+export function Overlay({ children }: { children: ReactNode }) {
+  return createPortal(children, document.body);
 }
 
 export function GlassButton({ children, label, onClick, className = '', size = 40 }: { children: ReactNode; label: string; onClick?: () => void; className?: string; size?: number }) {

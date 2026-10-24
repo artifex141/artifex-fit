@@ -5,7 +5,7 @@
 .nt-head { position: relative; height: 12.8rem; margin: 0 -3.4rem 0 -3.8rem; }
 .nt-title { position: absolute; left: 5.3rem; top: 3.4rem; margin: 0; font-size: 6rem; font-weight: 700; letter-spacing: -0.1rem; line-height: 1.1; }
 .nt-date {
-  position: absolute; left: 57.8rem; top: 3.5rem; width: 23.9rem; height: 6.3rem;
+  position: absolute; right: 12.4rem; top: 3.5rem; min-width: 23.9rem; height: 6.3rem; white-space: nowrap;
   display: flex; align-items: center; gap: 1.4rem; padding: 0 2.4rem 0 2.4rem; border-radius: 3.2rem;
   font-size: 2.1rem; color: #c9d1da;
   background: linear-gradient(180deg, #1a2027, #12181e); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow);
