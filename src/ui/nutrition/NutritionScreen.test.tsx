@@ -2,7 +2,7 @@
 import 'fake-indexeddb/auto';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, expect, onTestFinished, test, vi } from 'vitest';
 import { db } from '../../db/db';
 import { addEntries, saveTargets, upsertFood } from '../../db/nutrition';
 import { saveProfile } from '../../db/repo';
@@ -43,8 +43,12 @@ test('сводка дня и суммы приёмов из записей; но
 });
 
 test('раскрытие приёма показывает продукты; удаление через «…»', async () => {
+  // Утро: по умолчанию раскрыт завтрак, обед свёрнут — иначе результат зависел бы от часа запуска теста.
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2026, 9, 24, 8, 0));
+  onTestFinished(() => vi.useRealTimers());
   await saveTargets({ kcal: 2400, p: 180, f: 80, c: 300, manual: true });
-  await addEntries(today, 'lunch', [{ name: 'Гречка', grams: 150, per100: OATS }]);
+  await addEntries(dayKey(new Date()), 'lunch', [{ name: 'Гречка', grams: 150, per100: OATS }]);
   render(<NutritionScreen />);
   const lunch = await screen.findByRole('region', { name: 'Обед' });
   const toggle = within(lunch).getByRole('button', { name: 'Показать продукты' });
