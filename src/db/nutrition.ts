@@ -64,3 +64,8 @@ export async function saveTargets(t: Targets): Promise<void> {
 export async function clearTargets(): Promise<void> {
   await db.settings.delete('nutritionTargets');
 }
+
+/** Свой продукт с этим штрихкодом (введённый вручную или найденный раньше). */
+export async function foodByBarcode(code: string): Promise<FoodRow | undefined> {
+  return db.foods.where('barcode').equals(code).first();
+}

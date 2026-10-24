@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, expect, test } from 'vitest';
 import { db } from './db';
-import { addEntries, clearTargets, daysWithEntries, deleteEntry, entriesOn, getTargets, recentFoods, saveTargets, setEntryGrams, upsertFood } from './nutrition';
+import { addEntries, clearTargets, daysWithEntries, foodByBarcode, deleteEntry, entriesOn, getTargets, recentFoods, saveTargets, setEntryGrams, upsertFood } from './nutrition';
 import { exportAll, importAll } from './repo';
 
 const OATS = { kcal: 350, p: 12, f: 1.5, c: 72 };
@@ -65,4 +65,10 @@ test('резервная копия включает продукты и зап�
   await importAll(json);
   expect(await db.foods.count()).toBe(1);
   expect((await entriesOn('2026-10-23'))[0].kcal).toBe(107);
+});
+
+test('продукт по штрихкоду ищется среди своих', async () => {
+  await upsertFood({ source: 'manual', name: 'Сырок', barcode: '4600000000009', per100: { kcal: 407, p: 8.5, f: 27, c: 32 } });
+  expect((await foodByBarcode('4600000000009'))?.name).toBe('Сырок');
+  expect(await foodByBarcode('4600000000010')).toBeUndefined();
 });

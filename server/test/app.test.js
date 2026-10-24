@@ -212,17 +212,31 @@ test('маршруты питания: фото до 4 МБ, штрихкод, �
     barcode: async (c) => (seen.push(['barcode', c]), { status: 404, body: { error: 'нет' } }),
     search: async (q) => (seen.push(['search', q]), { status: 200, body: { items: [] } }),
   };
-  const srv = http.createServer(createApp({ store: createStore(null), clock: { now: Date.now, setTimer: setTimeout, clearTimer: clearTimeout }, send: async () => 201, publicKey: 'P', origins: [ORIGIN], food: foodStub }).handler);
+  const st = createStore(null);
+  st.setDevice('dev-00000001', SUB);
+  const srv = http.createServer(createApp({ store: st, clock: { now: Date.now, setTimer: setTimeout, clearTimer: clearTimeout }, send: async () => 201, publicKey: 'P', origins: [ORIGIN], food: foodStub }).handler);
   await new Promise((r) => srv.listen(0, '127.0.0.1', r));
   const b = `http://127.0.0.1:${srv.address().port}`;
   const big = 'data:image/jpeg;base64,' + 'A'.repeat(1_500_000);
   const r = await fetch(`${b}/api/food/photo`, { method: 'POST', headers: { 'content-type': 'application/json', origin: ORIGIN }, body: JSON.stringify({ deviceId: 'dev-00000001', image: big }) });
   assert.equal(r.status, 200);
   assert.equal(r.headers.get('access-control-allow-origin'), ORIGIN);
-  assert.equal((await fetch(`${b}/api/food/barcode/4600000000001`, { headers: { origin: ORIGIN } })).status, 404);
-  assert.equal((await fetch(`${b}/api/food/search?q=${encodeURIComponent('овсянка')}`)).status, 200);
+  assert.equal((await fetch(`${b}/api/food/barcode/4600000000001?deviceId=dev-00000001`, { headers: { origin: ORIGIN } })).status, 404);
+  assert.equal((await fetch(`${b}/api/food/search?deviceId=dev-00000001&q=${encodeURIComponent('овсянка')}`, { headers: { origin: ORIGIN } })).status, 200);
   assert.deepEqual(seen.map((x) => x[0]), ['photo', 'barcode', 'search']);
   assert.equal(seen[1][1], '4600000000001');
   assert.equal(seen[2][1], 'овсянка');
+
+  // Чужие не тратят лимиты: без Origin, с неизвестным устройством — 403, до OpenAI/OFF не доходит.
+  const photo = (deviceId, headers) => fetch(`${b}/api/food/photo`, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify({ deviceId, image: 'data:image/jpeg;base64,AA==' }) });
+  assert.equal((await photo('dev-00000001', {})).status, 403);
+  const stranger = await photo('dev-99999999', { origin: ORIGIN });
+  assert.equal(stranger.status, 403);
+  assert.match((await stranger.json()).error, /Устройство/);
+  assert.equal((await fetch(`${b}/api/food/search?q=abc`, { headers: { origin: ORIGIN } })).status, 403);
+  assert.equal((await fetch(`${b}/api/food/barcode/4600000000001?deviceId=dev-99999999`, { headers: { origin: ORIGIN } })).status, 403);
+  st.addBody('dev-77777777', { type: 'weight', date: Date.now(), value: 70 });
+  assert.equal((await fetch(`${b}/api/food/search?deviceId=dev-77777777&q=abc`, { headers: { origin: ORIGIN } })).status, 200);
+  assert.equal(seen.length, 4);
   srv.close();
 });

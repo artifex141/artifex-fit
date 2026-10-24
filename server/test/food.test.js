@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -142,4 +142,16 @@ test('штрихкод: сбой Open Food Facts — 502, «нет в базе»
   assert.equal((await fd.barcode('4600000000077')).status, 502);
   fail = false;
   assert.equal((await fd.barcode('4600000000077')).body.name, 'Кефир');
+});
+
+test('кэш: поиски старше суток выбрасываются при сохранении', async () => {
+  let now = Date.UTC(2026, 9, 23, 12);
+  const cacheFile = path.join(mkdtempSync(path.join(tmpdir(), 'food-')), 'off.json');
+  const fn = async () => Response.json({ hits: [] });
+  const fd = createFood({ fetch: fn, apiKey: '', model: 'm', now: () => now, cacheFile, log: () => {} });
+  await fd.search('старый');
+  now += 25 * 3600_000;
+  await fd.search('новый');
+  const keys = Object.keys(JSON.parse(readFileSync(cacheFile, 'utf8')));
+  assert.deepEqual(keys, ['s:новый']);
 });

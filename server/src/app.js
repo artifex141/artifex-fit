@@ -112,6 +112,21 @@ export function createApp({ store, clock, send, publicKey, origins, food = null,
     });
   }
 
+  const UNKNOWN_DEVICE = 'Устройство не подключено к серверу — включи уведомления в настройках Artifex';
+  const knownDevice = (id) => typeof id === 'string' && UUIDISH.test(id) && Boolean(store.getDevice(id) || Object.keys(store.getBody(id)).length);
+  // Запросы к Open Food Facts: не больше OFF_PER_DAY на устройство за сутки (UTC).
+  const OFF_PER_DAY = 500;
+  let offDay = '';
+  let offCount = new Map();
+  const countOff = (id) => {
+    const d = new Date(clock.now()).toISOString().slice(0, 10);
+    if (d !== offDay) [offDay, offCount] = [d, new Map()];
+    const n = offCount.get(id) ?? 0;
+    if (n >= OFF_PER_DAY) return false;
+    offCount.set(id, n + 1);
+    return true;
+  };
+
   async function handler(req, res) {
     const origin = req.headers.origin;
     const url = new URL(req.url, 'http://x');
@@ -127,13 +142,19 @@ export function createApp({ store, clock, send, publicKey, origins, food = null,
       if (route === 'GET /api/vapid') return reply(res, 200, { publicKey }, origin);
 
       // Питание: фото (тело до 6 МБ — base64 фото до 4 МБ), штрихкод, поиск.
+      // Только из приложения и только с устройств, которые уже знает сервер (подписка на уведомления или замеры тела),
+      // иначе любой скрипт со случайными deviceId выбрал бы дневной лимит OpenAI.
+      if (food && url.pathname.startsWith('/api/food/') && !origin) return reply(res, 403, { error: 'Запрос не из приложения' });
       if (food && route === 'POST /api/food/photo') {
         const body = await readJson(req, 6 * 1024 * 1024).catch(() => null);
         if (!body) return reply(res, 400, { error: 'Фото слишком большое или запрос не JSON' }, origin);
+        if (!knownDevice(body.deviceId)) return reply(res, 403, { error: UNKNOWN_DEVICE }, origin);
         const r = await food.photo(body);
         return reply(res, r.status, r.body, origin);
       }
       const bc = food && req.method === 'GET' && /^\/api\/food\/barcode\/([^/]+)$/.exec(url.pathname);
+      if ((bc || (food && route === 'GET /api/food/search')) && !knownDevice(url.searchParams.get('deviceId'))) return reply(res, 403, { error: UNKNOWN_DEVICE }, origin);
+      if ((bc || (food && route === 'GET /api/food/search')) && !countOff(url.searchParams.get('deviceId'))) return reply(res, 429, { error: `Лимит ${OFF_PER_DAY} запросов к базе продуктов в сутки исчерпан` }, origin);
       if (bc) {
         const r = await food.barcode(decodeURIComponent(bc[1]));
         return reply(res, r.status, r.body, origin);

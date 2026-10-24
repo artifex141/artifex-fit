@@ -3,11 +3,12 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { cachedBody, inLb, loadBody, metric, type BodyData } from '../../body/body';
 import { db } from '../../db/db';
-import { addEntries, deleteEntry, entriesOn, getTargets, setEntryGrams, upsertFood, type EntryRow } from '../../db/nutrition';
+import { addEntries, deleteEntry, entriesOn, foodByBarcode, getTargets, setEntryGrams, upsertFood, type EntryRow } from '../../db/nutrition';
 import { getProfile } from '../../db/repo';
 import { autoTargets, dayKey, mealByTime, MEALS, sumMacros, type Meal, type Targets } from '../../nutrition/calc';
 import { ageFrom, DEFAULT_PROFILE, type ProfileInfo } from '../../profile/profile';
 import { ChevronIcon } from '../kit';
+import { useNow } from '../useNow';
 import { fetchBarcode } from '../../nutrition/foodApi';
 import type { ReviewItem } from '../../nutrition/photo';
 import { GramsSheet } from './GramsSheet';
@@ -43,11 +44,11 @@ export function resolveTargets(saved: Targets | null, profile: ProfileInfo, body
   return autoTargets({ weightLb: weight.value, heightCm: profile.heightCm, age: ageFrom(profile.birthYear, now), goal: profile.goal });
 }
 
-function dateLabel(date: Date) {
-  const key = dayKey(date);
-  if (key === dayKey(new Date())) return 'Сегодня';
-  if (key === dayKey(new Date(Date.now() - DAY))) return 'Вчера';
-  return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '');
+function dateLabel(key: string, now: number) {
+  if (key === dayKey(new Date(now))) return 'Сегодня';
+  if (key === dayKey(new Date(now - DAY))) return 'Вчера';
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '');
 }
 
 /** Миниатюры записей: фото из IndexedDB (object URL) или картинка продукта из Open Food Facts. */
@@ -74,8 +75,12 @@ function useThumbs(entries: EntryRow[]) {
 }
 
 export function NutritionScreen() {
-  const [date, setDate] = useState(() => new Date());
-  const key = dayKey(date);
+  // picked = null — «Сегодня»: день пересчитывается, когда приложение возвращается из фона (в т.ч. после полуночи).
+  const now = useNow(60_000);
+  const today = dayKey(new Date(now));
+  const [picked, setPicked] = useState<string | null>(null);
+  const key = picked ?? today;
+  const setDay = (k: string) => setPicked(k === dayKey(new Date()) ? null : k);
   const entries = useLiveQuery(() => entriesOn(key), [key]);
   const saved = useLiveQuery(getTargets);
   const profile = useLiveQuery(getProfile) ?? DEFAULT_PROFILE;
@@ -112,6 +117,12 @@ export function NutritionScreen() {
 
   const lookup = async (code: string, meal: Meal) => {
     setLooking(true);
+    const own = await foodByBarcode(code);
+    if (own) {
+      setLooking(false);
+      const { name, brand, barcode, image, per100, source } = own;
+      return setSheet({ kind: 'grams', food: { name, brand, barcode, image, per100, source }, meal });
+    }
     const r = await fetchBarcode(code);
     setLooking(false);
     if ('food' in r) setSheet({ kind: 'grams', food: { ...r.food, source: 'off' }, meal });
@@ -133,7 +144,7 @@ export function NutritionScreen() {
           <span className="nt-date-icon">
             <CalendarIcon />
           </span>
-          <span className="nt-date-label">{dateLabel(date)}</span>
+          <span className="nt-date-label">{dateLabel(key, now)}</span>
           <ChevronIcon dir="down" />
         </button>
         <button className="glass-btn nt-menu" aria-label="Дневная норма" onClick={() => setSheet({ kind: 'targets' })}>
@@ -159,7 +170,7 @@ export function NutritionScreen() {
           expanded={open.has(m)}
           onToggle={() => toggle(m)}
           onAdd={() => {
-            // Камера открывается прямо из нажатия — иначе iOS не покажет выбор снимка.
+            // Выбор файла открывается прямо из нажатия — иначе iOS его не покажет. Без capture iOS предлагает и камеру, и медиатеку.
             cameraMeal.current = m;
             camera.current?.click();
           }}
@@ -185,7 +196,6 @@ export function NutritionScreen() {
         ref={camera}
         type="file"
         accept="image/*"
-        capture="environment"
         hidden
         onChange={(e) => {
           const file = e.target.files?.[0];
@@ -219,7 +229,7 @@ export function NutritionScreen() {
                 key={back}
                 className="btn block"
                 onClick={() => {
-                  setDate(new Date(Date.now() - back * DAY));
+                  setDay(dayKey(new Date(Date.now() - back * DAY)));
                   setDateMenu(false);
                 }}
               >
@@ -234,7 +244,7 @@ export function NutritionScreen() {
                 value={key}
                 onChange={(e) => {
                   const [y, mo, d] = e.target.value.split('-').map(Number);
-                  if (y && mo && d) setDate(new Date(y, mo - 1, d));
+                  if (y && mo && d) setDay(dayKey(new Date(y, mo - 1, d)));
                   setDateMenu(false);
                 }}
               />
@@ -306,8 +316,7 @@ export function NutritionScreen() {
       {sheet?.kind === 'history' && (
         <HistorySheet
           onPick={(d) => {
-            const [y, mo, dd] = d.split('-').map(Number);
-            setDate(new Date(y, mo - 1, dd));
+            setDay(d);
             setSheet(null);
           }}
           onClose={() => setSheet(null)}

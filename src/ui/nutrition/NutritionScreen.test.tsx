@@ -4,7 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { db } from '../../db/db';
-import { addEntries, saveTargets } from '../../db/nutrition';
+import { addEntries, saveTargets, upsertFood } from '../../db/nutrition';
 import { saveProfile } from '../../db/repo';
 import { dayKey } from '../../nutrition/calc';
 import { NutritionScreen } from './NutritionScreen';
@@ -68,4 +68,41 @@ test('без нормы и профиля — просьба заполнить 
   const ring = await screen.findByTestId('nt-ring');
   await vi.waitFor(() => expect(ring).toHaveTextContent(/из 2\s920/));
   expect(screen.queryByText(/Заполни профиль/)).not.toBeInTheDocument();
+});
+
+test('после полуночи «Сегодня» переходит на новый день (приложение вернули из фона)', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  try {
+    vi.setSystemTime(new Date(2026, 9, 23, 23, 50));
+    await saveTargets({ kcal: 2400, p: 180, f: 80, c: 300, manual: true });
+    await addEntries('2026-10-23', 'dinner', [{ name: 'Курица', grams: 200, per100: { kcal: 165, p: 31, f: 3.6, c: 0 } }]);
+    render(<NutritionScreen />);
+    const ring = await screen.findByTestId('nt-ring');
+    await vi.waitFor(() => expect(ring).toHaveTextContent(/330/));
+
+    vi.setSystemTime(new Date(2026, 9, 24, 8, 0));
+    document.dispatchEvent(new Event('visibilitychange'));
+    await vi.waitFor(() => expect(ring).not.toHaveTextContent(/330/));
+    expect(screen.getByRole('button', { name: /Сегодня/ })).toBeInTheDocument();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test('сканер: свой продукт со штрихкодом находится без сервера', async () => {
+  await upsertFood({ source: 'manual', name: 'Сырок', barcode: '4600000000009', per100: { kcal: 407, p: 8.5, f: 27, c: 32 } });
+  render(<NutritionScreen />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Сканировать' }));
+  fireEvent.change(await screen.findByLabelText('Штрихкод'), { target: { value: '4600000000009' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Найти' }));
+  expect(await screen.findByRole('dialog', { name: 'Сырок' })).toBeInTheDocument();
+  expect(fetch).not.toHaveBeenCalledWith(expect.stringContaining('/api/food/barcode'));
+});
+
+test('«+» даёт выбор: снять фото или взять из медиатеки (без capture)', async () => {
+  const { container } = render(<NutritionScreen />);
+  await screen.findByTestId('nt-ring');
+  const input = container.querySelector('input[type=file]')!;
+  expect(input).toHaveAttribute('accept', 'image/*');
+  expect(input).not.toHaveAttribute('capture');
 });

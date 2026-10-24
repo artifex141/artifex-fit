@@ -82,6 +82,10 @@ export function createFood({ fetch, apiKey, model, now = () => Date.now(), cache
     /* пустой кэш */
   }
   const saveCache = () => {
+    // Поиски живут сутки, всего — не больше 5000 записей (самые старые уходят).
+    for (const [k, v] of Object.entries(cache)) if (k.startsWith('s:') && now() - v.at > 24 * 3600_000) delete cache[k];
+    const keys = Object.keys(cache);
+    if (keys.length > 5000) keys.sort((a, b) => cache[a].at - cache[b].at).slice(0, keys.length - 5000).forEach((k) => delete cache[k]);
     try {
       mkdirSync(path.dirname(cacheFile), { recursive: true });
       writeFileSync(cacheFile + '.tmp', JSON.stringify(cache));
