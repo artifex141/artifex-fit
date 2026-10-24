@@ -1,0 +1,131 @@
+/* Экран «Питание» — 1:1 с макетом (941 px). Размеры = px макета / 10 в rem. Карточки — x 38…907. */
+.nt { position: relative; width: min(100vw, 480px); margin: 0 auto; padding: env(safe-area-inset-top) 3.4rem calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 3rem) 3.8rem; }
+
+/* Шапка */
+.nt-head { position: relative; height: 12.8rem; margin: 0 -3.4rem 0 -3.8rem; }
+.nt-title { position: absolute; left: 5.3rem; top: 3.4rem; margin: 0; font-size: 6rem; font-weight: 700; letter-spacing: -0.1rem; line-height: 1.1; }
+.nt-date {
+  position: absolute; left: 57.8rem; top: 3.5rem; width: 23.9rem; height: 6.3rem;
+  display: flex; align-items: center; gap: 1.4rem; padding: 0 2.4rem 0 2.4rem; border-radius: 3.2rem;
+  font-size: 2.1rem; color: #c9d1da;
+  background: linear-gradient(180deg, #1a2027, #12181e); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow);
+}
+.nt-date-icon { display: grid; color: var(--accent); }
+.nt-date-icon svg { width: 3.2rem; height: 3.2rem; }
+.nt-date-label { flex: 1; text-align: left; white-space: nowrap; }
+.nt-date > svg { width: 2.6rem; height: 2.6rem; color: #b9c4cf; }
+.nt-menu { position: absolute; left: 84rem; top: 3.5rem; width: 6.2rem; height: 6.2rem; color: #d7dde6; }
+.nt-menu svg { width: 2.6rem; height: 2.6rem; }
+
+/* Карточка — как на макете: светлее сверху, темнее снизу, тонкая светлая кромка */
+.nt-card {
+  position: relative; border-radius: 3rem;
+  background: linear-gradient(180deg, #161c23 0%, #10161c 60%, #0d1318 100%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.04), 0 1.2rem 3rem rgba(0, 0, 0, 0.35);
+}
+
+/* Сводка: y 128…455 */
+.nt-summary { height: 32.7rem; }
+.nt-ring { position: absolute; left: 5.7rem; top: 3.2rem; width: 27rem; height: 27rem; }
+.nt-ring > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.nt-ring-track { fill: none; stroke: #1f272f; stroke-width: 14; }
+.nt-ring-arc { fill: none; stroke-width: 14; stroke-linecap: round; }
+.nt-ring-text { position: absolute; inset: 0; }
+/* Центры строк по макету (от верха кольца): огонь 75, число 130, «из …» 175, «ккал» 205 */
+.nt-ring-text > * { position: absolute; left: 0; right: 0; text-align: center; line-height: 1; white-space: nowrap; }
+.nt-flame { top: 5.8rem; display: grid; justify-items: center; color: var(--accent); filter: drop-shadow(0 0 0.8rem rgba(245, 197, 24, 0.45)); }
+.nt-flame svg { width: 3.4rem; height: 3.4rem; }
+.nt-ring-text b { top: 10.5rem; font-size: 5rem; font-weight: 700; letter-spacing: -0.05rem; }
+.nt-ring-text span.nt-of { top: 16.3rem; }
+.nt-ring-text span.nt-unit { top: 19.3rem; }
+.nt-of, .nt-unit { font-size: 2.3rem; color: var(--muted); }
+
+.nt-macros { position: absolute; left: 39.4rem; top: 2.8rem; width: 44rem; }
+.nt-macro { display: flex; gap: 1.5rem; height: 9.4rem; }
+.nt-macro-icon {
+  flex: none; width: 5.4rem; height: 5.4rem; border-radius: 50%; display: grid; place-items: center;
+  background: var(--glass); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); color: #b9c6d6;
+}
+.nt-macro-icon svg { width: 2.8rem; height: 2.8rem; }
+.nt-macro-main { flex: 1; min-width: 0; }
+.nt-macro-label { display: flex; align-items: center; justify-content: space-between; height: 5.4rem; font-size: 2.1rem; white-space: nowrap; }
+.nt-macro-label b { font-size: 2.1rem; font-weight: 600; }
+.nt-macro-label em { font-style: normal; color: var(--muted); font-size: 2rem; }
+.nt-bar { display: block; height: 1rem; margin-top: -0.3rem; border-radius: 1rem; background: #181e27; overflow: hidden; }
+.nt-bar > span { display: block; height: 100%; border-radius: 1rem; background: linear-gradient(90deg, #f5c518, #f3d32a); box-shadow: 0 0 1rem rgba(245, 197, 24, 0.55); }
+
+/* Плитки: y 475…635, 4 × 20.3 с зазором 1.9 */
+.nt-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.9rem; margin-top: 2rem; }
+.nt-tile {
+  height: 16rem; padding: 2.4rem 1rem 0 3.4rem; border-radius: 2.6rem; display: flex; flex-direction: column;
+  background: linear-gradient(180deg, #141b22 0%, #0f141b 100%); border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.04), 0 1rem 2.4rem rgba(0, 0, 0, 0.3);
+}
+.nt-tile-icon { display: grid; height: 3.2rem; color: var(--accent); }
+.nt-tile-icon svg { width: 3.2rem; height: 3.2rem; }
+.nt-tile.p .nt-tile-icon { color: #c9d3de; }
+.nt-tile.kcal .nt-tile-icon, .nt-tile.c .nt-tile-icon { filter: drop-shadow(0 0 0.6rem rgba(245, 197, 24, 0.35)); }
+.nt-tile b { margin-top: 1.6rem; font-size: 3.2rem; font-weight: 700; line-height: 1.1; white-space: nowrap; }
+.nt-tile > span:last-child { margin-top: 1rem; font-size: 2rem; color: var(--muted); }
+
+/* «Заполни профиль» */
+.nt-fill { margin-top: 1.4rem; padding: 2rem 2.6rem; display: flex; flex-direction: column; gap: 0.8rem; border-color: rgba(245, 197, 24, 0.3); }
+.nt-fill b { font-size: 2.3rem; color: var(--accent); }
+.nt-fill span { font-size: 1.9rem; color: var(--muted); line-height: 1.35; }
+
+/* Приёмы пищи: первый y 657, между карточками 0.7 */
+.nt-meal { margin-top: 0.7rem; border-radius: 2.6rem; }
+.nt-tiles + .nt-meal, .nt-fill + .nt-meal { margin-top: 2.2rem; }
+.nt-meal.open { padding-bottom: 1rem; }
+.nt-meal-head { position: relative; height: 9.1rem; display: flex; align-items: center; padding: 0 1.9rem 0 2.2rem; }
+.nt-meal-icon {
+  flex: none; width: 6.8rem; height: 6.8rem; border-radius: 50%; display: grid; place-items: center; color: var(--accent);
+  background: radial-gradient(circle at 50% 40%, #2c2a20 0%, #1d1c16 60%, #15150f 100%);
+  box-shadow: inset 0 1px 1px rgba(255, 240, 180, 0.06), 0 0.6rem 1.4rem rgba(0, 0, 0, 0.4);
+}
+.nt-meal-icon svg { width: 4rem; height: 4rem; filter: drop-shadow(0 0 0.8rem rgba(245, 197, 24, 0.55)); }
+.nt-meal-title { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.5rem; margin-left: 3.1rem; }
+.nt-meal-title b { font-size: 2.3rem; font-weight: 600; line-height: 1.2; }
+.nt-line { font-size: 1.9rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nt-line u { text-decoration-color: rgba(141, 157, 177, 0.55); text-decoration-thickness: 1px; text-underline-offset: 0.5rem; }
+.nt-plus {
+  flex: none; width: 5.8rem; height: 5.8rem; border-radius: 50%; display: grid; place-items: center; color: var(--accent);
+  background: radial-gradient(circle at 50% 40%, #262519 0%, #18170f 100%);
+  border: 1.5px solid rgba(241, 218, 14, 0.75);
+  box-shadow: 0 0 1.6rem rgba(245, 197, 24, 0.35), inset 0 0 1rem rgba(245, 197, 24, 0.12);
+}
+.nt-plus svg { width: 3rem; height: 3rem; }
+.nt-chev { width: 5.8rem; height: 5.8rem; margin-left: 2.4rem; color: #d7dde6; }
+
+/* Список продуктов раскрытого приёма: x 63…880 */
+.nt-items {
+  margin: 0.5rem 2.6rem 0 2.4rem; border-radius: 2.2rem; overflow: hidden;
+  background: linear-gradient(180deg, #121a21 0%, #11171c 100%); border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.nt-item { position: relative; display: flex; align-items: center; height: 9.3rem; padding: 0 1.4rem 0 1.9rem; }
+.nt-item + .nt-item::before { content: ''; position: absolute; left: 12.9rem; right: 2rem; top: 0; border-top: 1px solid #191f26; }
+.nt-thumb {
+  flex: none; width: 8rem; height: 8rem; border-radius: 50%; overflow: hidden; display: grid; place-items: center;
+  background: #1a2129; color: var(--muted); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35), 0 0.6rem 1.2rem rgba(0, 0, 0, 0.45);
+}
+.nt-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.nt-thumb svg { width: 4rem; height: 4rem; }
+.nt-item-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.6rem; margin-left: 3rem; }
+.nt-item-name { font-size: 2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nt-item .nt-line { font-size: 1.85rem; }
+.nt-dots { flex: none; width: 5.2rem; height: 5.2rem; display: grid; place-items: center; color: #8e98a5; }
+.nt-dots svg { width: 2.6rem; height: 2.6rem; }
+.nt-empty { padding: 2.4rem 2.4rem; font-size: 1.9rem; color: var(--muted); }
+
+/* Нижняя панель: y 1357…1502 */
+.nt-actions { margin-top: 1.2rem; height: 14.5rem; padding: 0 2rem; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.nt-action { display: flex; flex-direction: column; align-items: center; padding-top: 1.6rem; gap: 2rem; font-size: 2rem; color: #d7dde6; white-space: nowrap; }
+.nt-action-icon { width: 7rem; height: 7rem; color: #e6ebf1; }
+.nt-action-icon svg { width: 3.4rem; height: 3.4rem; }
+
+/* Листы */
+.nt-sheet-sub { margin: 0; font-size: 15px; }
+.nt-danger { color: #ff8a80; }
+.nt-pick { position: relative; overflow: hidden; }
+.nt-pick input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; }
