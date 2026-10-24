@@ -2,7 +2,7 @@ import { nextCycleConfig, type CycleMode } from '../program/cycle';
 import { nextTrainingDay, type Position } from '../program/schedule';
 import { DEFAULT_PROFILE, type ProfileInfo } from '../profile/profile';
 import type { CycleConfig } from '../program/weights';
-import { db, type SetRow, type SettingRow, type WorkoutRow } from './db';
+import { db, type EntryRow, type FoodRow, type SetRow, type SettingRow, type WorkoutRow } from './db';
 
 export type { Position } from '../program/schedule';
 export type { SetRow, WorkoutRow } from './db';
@@ -113,6 +113,8 @@ interface Backup {
   workouts: WorkoutRow[];
   sets: SetRow[];
   settings: SettingRow[];
+  foods?: FoodRow[]; // питание (фото в копию не входят)
+  entries?: EntryRow[];
 }
 
 export async function exportAll(): Promise<string> {
@@ -122,6 +124,8 @@ export async function exportAll(): Promise<string> {
     workouts: await db.workouts.toArray(),
     sets: await db.sets.toArray(),
     settings: await db.settings.toArray(),
+    foods: await db.foods.toArray(),
+    entries: (await db.entries.toArray()).map(({ photoId: _photo, ...e }) => e),
   };
   return JSON.stringify(backup);
 }
@@ -136,10 +140,13 @@ export async function importAll(json: string): Promise<void> {
   if (data?.version !== 1 || !Array.isArray(data.workouts) || !Array.isArray(data.sets) || !Array.isArray(data.settings)) {
     throw new Error('Это не резервная копия Artifex Fit');
   }
-  await db.transaction('rw', db.workouts, db.sets, db.settings, async () => {
-    await Promise.all([db.workouts.clear(), db.sets.clear(), db.settings.clear()]);
+  if ((data.foods && !Array.isArray(data.foods)) || (data.entries && !Array.isArray(data.entries))) throw new Error('Это не резервная копия Artifex Fit');
+  await db.transaction('rw', [db.workouts, db.sets, db.settings, db.foods, db.entries], async () => {
+    await Promise.all([db.workouts.clear(), db.sets.clear(), db.settings.clear(), db.foods.clear(), db.entries.clear()]);
     await db.workouts.bulkAdd(data.workouts!);
     await db.sets.bulkAdd(data.sets!);
     await db.settings.bulkAdd(data.settings!);
+    if (data.foods) await db.foods.bulkAdd(data.foods);
+    if (data.entries) await db.entries.bulkAdd(data.entries);
   });
 }
