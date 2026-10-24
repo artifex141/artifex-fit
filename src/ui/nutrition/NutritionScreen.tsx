@@ -1,6 +1,6 @@
 // Экран «Питание» — 1:1 с макетом (941 px): шапка с датой, сводка, плитки, приёмы пищи, нижняя панель.
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { cachedBody, inLb, loadBody, metric, type BodyData } from '../../body/body';
 import { db } from '../../db/db';
 import { deleteEntry, entriesOn, getTargets, type EntryRow } from '../../db/nutrition';
@@ -9,6 +9,7 @@ import { autoTargets, dayKey, mealByTime, MEALS, sumMacros, type Meal, type Targ
 import { ageFrom, DEFAULT_PROFILE, type ProfileInfo } from '../../profile/profile';
 import { ChevronIcon } from '../kit';
 import { MealCard } from './MealCard';
+import { PhotoReview } from './PhotoReview';
 import { Summary } from './Summary';
 import { CalendarIcon, DotsIcon, HistoryIcon, PlusIcon, ScanIcon, SearchIcon } from './icons';
 import './nutrition.css';
@@ -36,8 +37,12 @@ function useThumbs(entries: EntryRow[]) {
   const foodIds = [...new Set(entries.flatMap((e) => (e.photoId === undefined && e.foodId !== undefined ? [e.foodId] : [])))];
   const photos = useLiveQuery(() => db.photos.bulkGet(photoIds), [photoIds.join()]);
   const foods = useLiveQuery(() => db.foods.bulkGet(foodIds), [foodIds.join()]);
-  const urls = useMemo(() => new Map((photos ?? []).flatMap((p) => (p?.id !== undefined ? [[p.id, URL.createObjectURL(p.blob)] as const] : []))), [photos]);
-  useEffect(() => () => urls.forEach((u) => URL.revokeObjectURL(u)), [urls]);
+  const [urls, setUrls] = useState<Map<number, string>>(() => new Map());
+  useEffect(() => {
+    const map = new Map((photos ?? []).flatMap((p) => (p?.id !== undefined ? [[p.id, URL.createObjectURL(p.blob)] as const] : [])));
+    setUrls(map);
+    return () => map.forEach((u) => URL.revokeObjectURL(u));
+  }, [photos]);
   return useMemo(() => {
     const images = new Map((foods ?? []).flatMap((f) => (f?.id !== undefined && f.image ? [[f.id, f.image] as const] : [])));
     const map = new Map<number, string>();
@@ -59,6 +64,9 @@ export function NutritionScreen() {
   const [open, setOpen] = useState<Set<Meal>>(() => new Set([mealByTime(new Date())]));
   const [dateMenu, setDateMenu] = useState(false);
   const [itemMenu, setItemMenu] = useState<EntryRow | null>(null);
+  const [photo, setPhoto] = useState<{ file: Blob; meal: Meal } | null>(null);
+  const camera = useRef<HTMLInputElement>(null);
+  const cameraMeal = useRef<Meal>('breakfast');
   useEffect(() => {
     void loadBody().then(setBody);
   }, []);
@@ -107,7 +115,11 @@ export function NutritionScreen() {
           thumbs={thumbs}
           expanded={open.has(m)}
           onToggle={() => toggle(m)}
-          onAdd={() => {}}
+          onAdd={() => {
+            // Камера открывается прямо из нажатия — иначе iOS не покажет выбор снимка.
+            cameraMeal.current = m;
+            camera.current?.click();
+          }}
           onItem={setItemMenu}
         />
       ))}
@@ -125,6 +137,30 @@ export function NutritionScreen() {
           </button>
         ))}
       </nav>
+
+      <input
+        ref={camera}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        hidden
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = '';
+          if (file) setPhoto({ file, meal: cameraMeal.current });
+        }}
+      />
+      {photo && (
+        <PhotoReview
+          file={photo.file}
+          date={key}
+          meal={photo.meal}
+          onClose={() => {
+            setOpen((s) => new Set(s).add(photo.meal));
+            setPhoto(null);
+          }}
+        />
+      )}
 
       {dateMenu && (
         <div className="dialog-backdrop" onClick={() => setDateMenu(false)}>

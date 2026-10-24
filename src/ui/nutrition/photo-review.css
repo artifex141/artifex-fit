@@ -1,0 +1,41 @@
+/* Экран проверки фото: поверх всего, в стиле карточек «Питания». */
+.pr {
+  position: fixed; inset: 0; z-index: 60; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: calc(env(safe-area-inset-top) + 2.4rem) 3.6rem calc(env(safe-area-inset-bottom) + 16rem);
+  background: radial-gradient(130% 55% at 50% 0%, #1d2731 0%, #121a20 45%, #0c1115 100%), var(--bg);
+}
+.pr > * { max-width: 520px; margin-left: auto; margin-right: auto; }
+.pr-head { display: flex; align-items: center; gap: 2.4rem; margin-bottom: 2.4rem; }
+.pr-head h2 { margin: 0; font-size: 4.4rem; font-weight: 700; }
+.pr-back { width: 6.2rem; height: 6.2rem; color: #d7dde6; }
+.pr-photo { display: block; width: 100%; max-height: 42vh; object-fit: cover; border-radius: 3rem; border: 1px solid rgba(255, 255, 255, 0.06); }
+
+.pr-hint { display: flex; flex-direction: column; gap: 2rem; margin-top: 2.4rem; }
+.pr-hint textarea { font: inherit; padding: 12px; min-height: 64px; resize: none; font-size: 16px; }
+.pr-msg { margin-top: 2.4rem; padding: 2.4rem; border-radius: 2.6rem; background: var(--surface); border: 1px solid var(--line); }
+.pr-msg p { margin: 0 0 2rem; font-size: 16px; line-height: 1.4; }
+.grow { flex: 1; }
+
+.pr-dish { margin-top: 2.4rem; font-size: 15px; font-weight: 600; color: var(--muted); }
+.pr-items { margin-top: 1.6rem; display: flex; flex-direction: column; gap: 1.2rem; }
+.pr-item { padding: 1.6rem 1.8rem 1.8rem 2.4rem; border-radius: 2.6rem; background: linear-gradient(180deg, #161c23, #0f151a); border: 1px solid rgba(255, 255, 255, 0.06); }
+.pr-item-top { display: flex; align-items: center; gap: 1rem; }
+.pr-name { flex: 1; min-width: 0; padding: 0.6rem 0; font-size: 17px; font-weight: 500; background: none; border: 0; border-bottom: 1px solid transparent; }
+.pr-name:focus { outline: none; border-bottom-color: var(--accent); }
+.pr-del { flex: none; width: 5.2rem; height: 5.2rem; font-size: 26px; line-height: 1; color: var(--muted); }
+.pr-item-bottom { display: flex; align-items: center; gap: 1rem; margin-top: 1rem; }
+.pr-step { width: 9rem; height: 9rem; color: var(--accent); }
+.pr-step svg { width: 50%; height: 50%; }
+.pr-grams { width: 13rem; height: 9rem; text-align: center; font-size: 18px; font-weight: 600; background: #0f151a; border: 1px solid var(--line-strong); border-radius: 1.6rem; }
+.pr-g { color: var(--muted); font-size: 15px; }
+.pr-macros { flex: 1; min-width: 0; text-align: right; font-size: 12px; color: var(--muted); }
+
+.pr-add { margin-top: 1.6rem; }
+.pr-add svg { width: 20px; height: 20px; }
+.pr-total { display: flex; justify-content: space-between; align-items: baseline; gap: 2rem; margin-top: 2.4rem; padding: 0 0.8rem; font-size: 15px; color: var(--muted); }
+.pr-total b { color: var(--text); font-weight: 600; text-align: right; }
+.pr-save {
+  position: fixed; left: 0; right: 0; bottom: 0; max-width: none; padding: 2.4rem 3.6rem calc(env(safe-area-inset-bottom) + 2.4rem);
+  background: linear-gradient(180deg, rgba(12, 17, 21, 0), rgba(12, 17, 21, 0.95) 35%);
+}
+.pr-save .btn { max-width: 520px; margin: 0 auto; display: flex; }

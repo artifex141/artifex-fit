@@ -79,6 +79,12 @@ export const PlusIcon = () => (
   </Svg>
 );
 
+export const MinusIcon = () => (
+  <Svg>
+    <path d="M5 12h14" strokeWidth="2.2" />
+  </Svg>
+);
+
 export const SearchIcon = () => (
   <Svg>
     <circle cx="11" cy="11" r="6.5" strokeWidth="2" />
