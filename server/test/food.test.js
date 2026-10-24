@@ -109,15 +109,37 @@ test('штрихкод: энергия только в кДж пересчиты
   assert.equal(r.body.per100.kcal, 250);
 });
 
-test('поиск: продукты без КБЖУ отбрасываются', async () => {
+test('поиск: search-a-licious, продукты без КБЖУ отбрасываются, бренды склеиваются', async () => {
   const off = {
-    products: [
-      { code: '1', product_name: 'Овсянка', nutriments: { 'energy-kcal_100g': 350, proteins_100g: 12, fat_100g: 6, carbohydrates_100g: 60 } },
+    hits: [
+      { code: '1', product_name: 'Овсянка', brands: ['Увелка', 'Ярмарка'], nutriments: { 'energy-kcal_100g': 350, proteins_100g: 12, fat_100g: 6, carbohydrates_100g: 60 } },
       { code: '2', product_name: 'Без данных', nutriments: {} },
     ],
   };
-  const r = await food(fakeFetch({ off })).search('овсянка');
+  const f = fakeFetch({ off });
+  const r = await food(f).search('овсянка');
   assert.equal(r.status, 200);
-  assert.deepEqual(r.body.items.map((x) => x.name), ['Овсянка']);
+  assert.deepEqual(r.body.items, [{ barcode: '1', name: 'Овсянка', brand: 'Увелка, Ярмарка', image: undefined, per100: { kcal: 350, p: 12, f: 6, c: 60 } }]);
+  assert.match(f.calls[0].url, /^https:\/\/search\.openfoodfacts\.org\/search\?q=%D0%BE%D0%B2/);
   assert.equal((await food(fakeFetch({ off })).search('о')).status, 400);
+});
+
+test('поиск: сбой Open Food Facts — 502 и не кэшируется', async () => {
+  let fail = true;
+  const fn = async () => (fail ? new Response('<html>busy</html>', { status: 503 }) : Response.json({ hits: [{ code: '1', product_name: 'Творог', nutriments: { 'energy-kcal_100g': 120, proteins_100g: 17, fat_100g: 5, carbohydrates_100g: 2 } }] }));
+  const fd = food({ fn });
+  const bad = await fd.search('творог');
+  assert.equal(bad.status, 502);
+  assert.match(bad.body.error, /Open Food Facts/);
+  fail = false;
+  assert.equal((await fd.search('творог')).body.items.length, 1);
+});
+
+test('штрихкод: сбой Open Food Facts — 502, «нет в базе» не запоминается', async () => {
+  let fail = true;
+  const off = { status: 1, product: { product_name: 'Кефир', nutriments: { 'energy-kcal_100g': 53, proteins_100g: 3, fat_100g: 2.5, carbohydrates_100g: 4 } } };
+  const fd = food({ fn: async () => (fail ? new Response('<html>busy</html>', { status: 503 }) : Response.json(off)) });
+  assert.equal((await fd.barcode('4600000000077')).status, 502);
+  fail = false;
+  assert.equal((await fd.barcode('4600000000077')).body.name, 'Кефир');
 });

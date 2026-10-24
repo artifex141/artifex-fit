@@ -9,6 +9,8 @@ const PER_DEVICE_DAY = 60;
 const TOTAL_DAY = 300;
 const UA = 'ArtifexFit/1.0 (fit.artifex.mobi)';
 const OFF = 'https://world.openfoodfacts.org';
+// Полнотекстовый поиск — search-a-licious: старый /cgi/search.pl отвечает серверам из дата-центров 503.
+const OFF_SEARCH = 'https://search.openfoodfacts.org/search';
 
 const INSTRUCTIONS = `Ты — нутрициолог. На фото еда. Перечисли каждый отдельный продукт или компонент блюда, который видно на тарелке.
 Для каждого: название по-русски (коротко, например «Куриная грудка, жареная»), вес в граммах по размеру порции на фото,
@@ -164,7 +166,7 @@ export function createFood({ fetch, apiKey, model, now = () => Date.now(), cache
 
   async function offGet(url) {
     const res = await fetch(url, { headers: { 'User-Agent': UA, Accept: 'application/json' }, signal: AbortSignal.timeout(15_000) });
-    return { ok: res.ok, status: res.status, data: res.ok ? await res.json() : null };
+    return { ok: res.ok, status: res.status, data: res.ok ? await res.json().catch(() => null) : null };
   }
 
   async function barcode(code) {
@@ -176,6 +178,10 @@ export function createFood({ fetch, apiKey, model, now = () => Date.now(), cache
       r = await offGet(`${OFF}/api/v2/product/${code}.json?fields=product_name,brands,nutriments,image_front_small_url`);
     } catch {
       return { status: 504, body: { error: 'Open Food Facts не ответил' } };
+    }
+    if (!r.ok && r.status !== 404) {
+      log('food barcode', 'off', r.status);
+      return { status: 502, body: { error: `Open Food Facts временно недоступен (${r.status})` } };
     }
     const p = r.data?.product;
     const per100 = p && per100FromOff(p.nutriments);
@@ -197,12 +203,17 @@ export function createFood({ fetch, apiKey, model, now = () => Date.now(), cache
     if (cache[key] && now() - cache[key].at < 24 * 3600_000) return { status: 200, body: { items: cache[key].items } };
     let r;
     try {
-      r = await offGet(`${OFF}/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&page_size=20&fields=code,product_name,brands,nutriments,image_front_small_url`);
+      r = await offGet(`${OFF_SEARCH}?q=${encodeURIComponent(query)}&page_size=20&fields=code,product_name,brands,nutriments,image_front_small_url`);
     } catch {
       return { status: 504, body: { error: 'Open Food Facts не ответил' } };
     }
-    const items = (r.data?.products ?? [])
-      .map((p) => ({ barcode: p.code, name: p.product_name, brand: p.brands || undefined, image: p.image_front_small_url || undefined, per100: per100FromOff(p.nutriments) }))
+    if (!r.ok) {
+      log('food search', 'off', r.status);
+      return { status: 502, body: { error: `Open Food Facts временно недоступен (${r.status})` } };
+    }
+    const brand = (b) => (Array.isArray(b) ? b.join(', ') : b) || undefined;
+    const items = (r.data?.hits ?? [])
+      .map((p) => ({ barcode: p.code, name: p.product_name, brand: brand(p.brands), image: p.image_front_small_url || undefined, per100: per100FromOff(p.nutriments) }))
       .filter((x) => x.name && x.per100);
     cache[key] = { items, at: now() };
     saveCache();
