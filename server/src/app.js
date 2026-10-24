@@ -79,7 +79,7 @@ export function normalizeSample(raw, now) {
  *   log?: (...a: unknown[]) => void,
  * }} deps
  */
-export function createApp({ store, clock, send, publicKey, origins, food = null, log = () => {} }) {
+export function createApp({ store, clock, send, publicKey, origins, food = null, backups = null, log = () => {} }) {
   async function deliver(deviceId, payload) {
     const sub = store.getDevice(deviceId);
     if (!sub) return;
@@ -170,6 +170,30 @@ export function createApp({ store, clock, send, publicKey, origins, food = null,
       // Только из приложения и только с устройств, которые уже знает сервер (подписка на уведомления или замеры тела),
       // иначе любой скрипт со случайными deviceId выбрал бы дневной лимит OpenAI.
       if (food && url.pathname.startsWith('/api/food/') && !origin) return reply(res, 403, { error: 'Запрос не из приложения' });
+
+      // Облачная копия данных: только из приложения и только для известных устройств (до 5 МБ).
+      if (backups && url.pathname === '/api/backup') {
+        if (!origin) return reply(res, 403, { error: 'Запрос не из приложения' });
+        if (req.method === 'GET') {
+          const id = url.searchParams.get('deviceId');
+          if (!knownDevice(id)) return reply(res, 404, { error: 'Копии для этого ID нет' }, origin);
+          const b = backups.latest(id);
+          return b ? reply(res, 200, b, origin) : reply(res, 404, { error: 'Копии для этого ID нет' }, origin);
+        }
+        if (req.method === 'POST') {
+          const body = await readJson(req, 6 * 1024 * 1024).catch(() => null);
+          if (!body || typeof body.data !== 'string' || body.data.length > 5 * 1024 * 1024) return reply(res, 400, { error: 'Копия слишком большая или повреждена' }, origin);
+          if (!knownDevice(body.deviceId)) return reply(res, 403, { error: UNKNOWN_DEVICE }, origin);
+          try {
+            JSON.parse(body.data);
+          } catch {
+            return reply(res, 400, { error: 'Копия повреждена' }, origin);
+          }
+          const savedAt = backups.save(body.deviceId, body.data);
+          log('backup', body.deviceId.slice(0, 8), `${Math.round(body.data.length / 1024)} КБ`);
+          return reply(res, 200, { ok: true, savedAt }, origin);
+        }
+      }
       if (food && route === 'POST /api/food/photo') {
         const body = await readJson(req, 6 * 1024 * 1024).catch(() => null);
         if (!body) return reply(res, 400, { error: 'Фото слишком большое или запрос не JSON' }, origin);

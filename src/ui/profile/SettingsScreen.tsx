@@ -6,7 +6,9 @@ import { DAYS } from '../../program/program';
 import { TRAINING_DAYS, dayInfo } from '../../program/schedule';
 import type { DayType } from '../../program/types';
 import { cachedBody, inLb, loadBody, metric, type BodyData } from '../../body/body';
+import { cloud } from '../../backup/cloud';
 import { push } from '../../push/push';
+import { CloudBackup } from './CloudBackup';
 import './profile.css';
 
 const PICK_IDS = (['A', 'B', 'C'] as DayType[]).flatMap((t) =>
@@ -297,6 +299,7 @@ export function SettingsScreen({ onNewCycle, onClose }: { onNewCycle: (cycle: nu
       <PushSettings />
       <ZeppLife />
       <StartWeights />
+      <CloudBackup cloud={cloud} currentId={push.deviceId()} setDeviceId={push.setDeviceId} reload={() => location.reload()} />
       <Backup />
       {endCycle !== undefined && (
         <button className="btn block" disabled={!!open} onClick={() => onNewCycle(endCycle)}>

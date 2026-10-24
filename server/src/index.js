@@ -2,6 +2,7 @@
 import http from 'node:http';
 import webpush from 'web-push';
 import { createApp } from './app.js';
+import { createBackups } from './backup.js';
 import { createFood } from './food.js';
 import { createStore } from './store.js';
 
@@ -29,6 +30,7 @@ const { handler } = createApp({
     cacheFile: env('FOOD_CACHE_FILE', '/data/food-cache.json'),
     log,
   }),
+  backups: createBackups(env('BACKUP_DIR', '/data/backups')),
   log,
 });
 

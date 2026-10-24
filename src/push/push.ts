@@ -39,6 +39,11 @@ export function createPush({ api, storage, fetch: f }: { api: string; storage: K
 
   return {
     deviceId,
+    /** Вернуть прежний ID (после очистки хранилища): замеры Zepp и копии на сервере привязаны к нему. */
+    setDeviceId(id: string) {
+      storage.setItem(DEVICE, id.trim());
+      storage.removeItem(ON); // подписка на уведомления была у старого хранилища — включить заново
+    },
     isOn,
     async scheduleRest(at: number, title: string, body: string) {
       if (isOn()) await post('/api/rest', { deviceId: deviceId(), at, title, body });
