@@ -46,7 +46,9 @@ test('раскрытие приёма показывает продукты; у�
   // Утро: по умолчанию раскрыт завтрак, обед свёрнут — иначе результат зависел бы от часа запуска теста.
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date(2026, 9, 24, 8, 0));
-  onTestFinished(() => vi.useRealTimers());
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
   await saveTargets({ kcal: 2400, p: 180, f: 80, c: 300, manual: true });
   await addEntries(dayKey(new Date()), 'lunch', [{ name: 'Гречка', grams: 150, per100: OATS }]);
   render(<NutritionScreen />);
