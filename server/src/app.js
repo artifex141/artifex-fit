@@ -54,7 +54,7 @@ export function normalizeSample(raw, now) {
  *   log?: (...a: unknown[]) => void,
  * }} deps
  */
-export function createApp({ store, clock, send, publicKey, origins, log = () => {} }) {
+export function createApp({ store, clock, send, publicKey, origins, food = null, log = () => {} }) {
   async function deliver(deviceId, payload) {
     const sub = store.getDevice(deviceId);
     if (!sub) return;
@@ -89,16 +89,19 @@ export function createApp({ store, clock, send, publicKey, origins, log = () => 
     }
   }
 
-  function readJson(req) {
+  /** Тело запроса как JSON; больше max — дочитываем впустую и отказываем (иначе клиент зависнет на отправке). */
+  function readJson(req, max = MAX_BODY) {
     return new Promise((resolve, reject) => {
       let size = 0;
+      let tooLarge = false;
       const chunks = [];
       req.on('data', (c) => {
         size += c.length;
-        if (size > MAX_BODY) reject(new Error('too large'));
+        if (size > max) tooLarge = true;
         else chunks.push(c);
       });
       req.on('end', () => {
+        if (tooLarge) return reject(new Error('too large'));
         try {
           resolve(JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'));
         } catch (e) {
@@ -122,6 +125,23 @@ export function createApp({ store, clock, send, publicKey, origins, log = () => 
       if (origin && !origins.includes(origin)) return reply(res, 403, { error: 'origin' });
       if (req.method === 'OPTIONS') return reply(res, 204, undefined, origin);
       if (route === 'GET /api/vapid') return reply(res, 200, { publicKey }, origin);
+
+      // Питание: фото (тело до 6 МБ — base64 фото до 4 МБ), штрихкод, поиск.
+      if (food && route === 'POST /api/food/photo') {
+        const body = await readJson(req, 6 * 1024 * 1024).catch(() => null);
+        if (!body) return reply(res, 400, { error: 'Фото слишком большое или запрос не JSON' }, origin);
+        const r = await food.photo(body);
+        return reply(res, r.status, r.body, origin);
+      }
+      const bc = food && req.method === 'GET' && /^\/api\/food\/barcode\/([^/]+)$/.exec(url.pathname);
+      if (bc) {
+        const r = await food.barcode(decodeURIComponent(bc[1]));
+        return reply(res, r.status, r.body, origin);
+      }
+      if (food && route === 'GET /api/food/search') {
+        const r = await food.search(url.searchParams.get('q') ?? '');
+        return reply(res, r.status, r.body, origin);
+      }
       if (route === 'GET /api/body' || route === 'GET /api/body/add') {
         // Замер можно прислать GET-запросом: значения в адресе (?deviceId=&type=&value=&unit=&date=)
         // или в заголовках Device/DeviceId, Type, Value, Unit, Date — так их проще задать в «Командах».

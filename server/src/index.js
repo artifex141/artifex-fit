@@ -2,6 +2,7 @@
 import http from 'node:http';
 import webpush from 'web-push';
 import { createApp } from './app.js';
+import { createFood } from './food.js';
 import { createStore } from './store.js';
 
 const env = (k, d) => {
@@ -21,6 +22,13 @@ const { handler } = createApp({
   send: async (sub, payload) => (await webpush.sendNotification(sub, payload, { TTL: 300, urgency: 'high' })).statusCode,
   publicKey,
   origins: env('ALLOWED_ORIGINS', 'https://artifex141.github.io').split(',').map((s) => s.trim()),
+  food: createFood({
+    fetch,
+    apiKey: process.env.OPENAI_API_KEY ?? '',
+    model: env('OPENAI_MODEL', 'gpt-6.1-sol'),
+    cacheFile: env('FOOD_CACHE_FILE', '/data/food-cache.json'),
+    log,
+  }),
   log,
 });
 

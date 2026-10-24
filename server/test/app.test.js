@@ -204,3 +204,25 @@ test('невозможные значения отклоняются: вес в 
   assert.equal((await get({ Type: 'bodyFat', Value: '0.202', Unit: '%' })).status, 200);
   assert.equal((await get({ Type: 'weight', Value: '1600', Unit: 'lbs' })).status, 400);
 });
+
+test('маршруты питания: фото до 4 МБ, штрихкод, поиск; CORS для сайта', async () => {
+  const seen = [];
+  const foodStub = {
+    photo: async (b) => (seen.push(['photo', b.image.length]), { status: 200, body: { dish: '', items: [] } }),
+    barcode: async (c) => (seen.push(['barcode', c]), { status: 404, body: { error: 'нет' } }),
+    search: async (q) => (seen.push(['search', q]), { status: 200, body: { items: [] } }),
+  };
+  const srv = http.createServer(createApp({ store: createStore(null), clock: { now: Date.now, setTimer: setTimeout, clearTimer: clearTimeout }, send: async () => 201, publicKey: 'P', origins: [ORIGIN], food: foodStub }).handler);
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+  const b = `http://127.0.0.1:${srv.address().port}`;
+  const big = 'data:image/jpeg;base64,' + 'A'.repeat(1_500_000);
+  const r = await fetch(`${b}/api/food/photo`, { method: 'POST', headers: { 'content-type': 'application/json', origin: ORIGIN }, body: JSON.stringify({ deviceId: 'dev-00000001', image: big }) });
+  assert.equal(r.status, 200);
+  assert.equal(r.headers.get('access-control-allow-origin'), ORIGIN);
+  assert.equal((await fetch(`${b}/api/food/barcode/4600000000001`, { headers: { origin: ORIGIN } })).status, 404);
+  assert.equal((await fetch(`${b}/api/food/search?q=${encodeURIComponent('овсянка')}`)).status, 200);
+  assert.deepEqual(seen.map((x) => x[0]), ['photo', 'barcode', 'search']);
+  assert.equal(seen[1][1], '4600000000001');
+  assert.equal(seen[2][1], 'овсянка');
+  srv.close();
+});
